@@ -1,6 +1,6 @@
 (function () {
   var TOOLBAR_GAP = 16;
-  var TOOLBAR_REVEAL_DELAY = 3000;
+  var TOOLBAR_REVEAL_DELAY = 1500;
   var toolbarRevealTimer = null;
 
   function enhanceIconButton(selector, iconName, label) {
