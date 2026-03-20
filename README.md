@@ -16,14 +16,15 @@ The playground currently includes:
 - dark liquid / caustic studies
 - a softer glass-liquid experiment
 
-All shader pages live in [atmospheric-hero-shaders](/Users/vimal/Desktop/shaders/atmospheric-hero-shaders).
+All shader pages live in `atmospheric-hero-shaders/`.
 
 ## Run Locally
 
-From the project root:
+Clone the repo and run:
 
 ```bash
-cd /Users/vimal/Desktop/shaders
+git clone https://github.com/v1mal/atmospheric-hero-shaders.git
+cd atmospheric-hero-shaders
 python3 -m http.server 4173
 ```
 
