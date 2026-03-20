@@ -58,5 +58,15 @@
     "slug": "aurora-borealis",
     "title": "Aurora Borealis",
     "previewTime": 4.8
+  },
+  {
+    "slug": "void-levitation",
+    "title": "Void Levitation",
+    "previewTime": 4.2
+  },
+  {
+    "slug": "nucleus-drift",
+    "title": "Nucleus Drift",
+    "previewTime": 4.0
   }
 ]
