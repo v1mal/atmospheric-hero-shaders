@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aurora Borealis</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: linear-gradient(180deg, #041033 0%, #041127 45%, #07131a 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="./ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="./ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+  <div class="code-modal" aria-hidden="true"><div class="code-panel"><div class="code-panel-header"><span>Shader Source</span><div class="code-panel-actions"><button class="code-button copy-code-button" type="button">Copy Code</button><button class="code-button close-code-button" type="button">Close</button></div></div><div class="code-scroll"><pre class="code-block"><code></code></pre></div></div></div>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_intensity;
+    uniform vec3 u_skyTop;
+    uniform vec3 u_skyBottom;
+    uniform vec3 u_greenColor;
+    uniform vec3 u_cyanColor;
+    uniform vec3 u_violetColor;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 p) {
+      float value = 0.0;
+      float amp = 0.5;
+      for (int i = 0; i < 4; i++) {
+        value += noise(p) * amp;
+        p = mat2(1.8, -1.2, 1.2, 1.8) * p + vec2(5.3, 2.9);
+        amp *= 0.5;
+      }
+      return value;
+    }
+
+    float triWave(float x) {
+      return abs(fract(x) - 0.5);
+    }
+
+    vec2 triPair(vec2 p) {
+      return vec2(triWave(p.x) + triWave(p.y), triWave(p.y + triWave(p.x)));
+    }
+
+    float curtainTexture(vec2 p, float t) {
+      float scaleA = 1.6;
+      float scaleB = 2.4;
+      float accum = 0.0;
+      vec2 base = p;
+
+      for (int i = 0; i < 4; i++) {
+        float fi = float(i);
+        vec2 warp = triPair(base * scaleA + vec2(0.0, t * 0.08 + fi)) * 0.55;
+        p -= (warp - 0.5) * scaleB;
+        accum += triWave(p.x + triWave(p.y)) / scaleA;
+        base *= 1.28;
+        scaleA *= 1.38;
+        scaleB *= 0.62;
+        p *= mat2(0.95534, 0.29552, -0.29552, 0.95534);
+      }
+
+      return clamp(1.0 / pow(accum * 18.0 + 0.35, 1.18), 0.0, 1.0);
+    }
+
+    float starField(vec2 uv) {
+      vec2 p = uv * vec2(220.0, 130.0);
+      vec2 cell = floor(p);
+      vec2 f = fract(p) - 0.5;
+      float spark = step(0.9975, hash(cell));
+      float dist = length(f);
+      return spark * smoothstep(0.18, 0.0, dist);
+    }
+
+    void main() {
+      vec2 uv = v_uv;
+      vec2 p = uv * 2.0 - 1.0;
+      p.x *= u_resolution.x / u_resolution.y;
+
+      float t = u_time * u_speed;
+      float horizon = 0.2;
+      vec3 color = mix(u_skyBottom, u_skyTop, smoothstep(0.0, 0.95, uv.y));
+
+      float stars = starField(uv) + starField(uv * 1.35 + vec2(0.17, 0.09)) * 0.6;
+      color += vec3(0.85, 0.92, 1.0) * stars * smoothstep(horizon + 0.04, 0.65, uv.y);
+
+      float mainArc = 0.44 + 0.14 * sin(p.x * 1.75 - t * 0.42) + 0.08 * sin(p.x * 4.6 + t * 0.24);
+      float upperArc = 0.74 + 0.13 * sin(p.x * 1.18 + t * 0.28) + 0.06 * cos(p.x * 3.9 - t * 0.2);
+      float sideArc = 0.56 + 0.2 * sin(p.x * 2.7 + t * 0.3 + 1.4);
+      float crownArc = 0.86 + 0.1 * cos(p.x * 1.05 - t * 0.17);
+
+      float curtainNoise = fbm(vec2(p.x * 0.8 + t * 0.05, p.y * 2.2 - t * 0.16));
+      float trailNoise = curtainTexture(vec2(p.x * 0.95, p.y * 1.8), t);
+      float verticalRays = pow(smoothstep(0.22, 0.96, fbm(vec2(p.x * 8.0 + t * 0.25, p.y * 0.55))), 2.0);
+      float lowerRays = pow(smoothstep(0.3, 1.0, fbm(vec2(p.x * 10.0 - t * 0.21, p.y * 0.4 + 9.0))), 2.25);
+      float upperRays = pow(smoothstep(0.34, 0.98, fbm(vec2(p.x * 7.0 - t * 0.18, p.y * 0.6 + 14.0))), 2.1);
+
+      float band1 = exp(-pow((uv.y - mainArc) / 0.08, 2.0));
+      float band2 = exp(-pow((uv.y - upperArc) / 0.11, 2.0)) * 0.86;
+      float band3 = exp(-pow((uv.y - sideArc) / 0.075, 2.0)) * 0.82;
+      float band4 = exp(-pow((uv.y - crownArc) / 0.16, 2.0)) * 0.46;
+
+      float body = (band1 + band2 + band3 + band4) * (0.38 + curtainNoise * 0.72 + trailNoise * 0.55);
+      float rays = verticalRays * band1 * smoothstep(horizon + 0.04, 0.58, uv.y) * 0.95;
+      rays += lowerRays * band3 * smoothstep(horizon + 0.02, 0.52, uv.y) * 0.82;
+      rays += upperRays * band2 * smoothstep(0.46, 0.92, uv.y) * 0.52;
+      rays *= 0.45 + trailNoise * 0.95;
+
+      float veil = fbm(vec2(p.x * 1.1 - t * 0.04, p.y * 1.8 + t * 0.07));
+      float volume = 0.0;
+      float trans = 1.0;
+      float jitter = hash(gl_FragCoord.xy) * 0.04;
+
+      for (int i = 0; i < 10; i++) {
+        float fi = float(i);
+        float stepY = fi / 9.0;
+        float sampleY = mix(horizon + 0.04, 0.96, pow(stepY + jitter * 0.08, 1.35));
+        float sampleBand = exp(-pow((sampleY - mainArc) / 0.09, 2.0));
+        sampleBand += exp(-pow((sampleY - upperArc) / 0.12, 2.0)) * 0.75;
+        sampleBand += exp(-pow((sampleY - sideArc) / 0.085, 2.0)) * 0.65;
+        float sampleTrail = curtainTexture(vec2(p.x * 0.95, sampleY * 3.0 - 1.2), t + fi * 0.03);
+        float density = sampleBand * (0.16 + sampleTrail * 0.42);
+        volume += density * trans;
+        trans *= 0.84;
+      }
+
+      float aurora = smoothstep(0.12, 1.42, body + rays * 0.92 + veil * (band2 + band4) * 0.36 + volume * 0.7) * u_intensity;
+
+      vec3 auroraColor = mix(u_greenColor, u_cyanColor, smoothstep(0.42, 1.08, band2 * 0.82 + band4 * 0.22 + curtainNoise * 0.28));
+      auroraColor = mix(auroraColor, u_violetColor, smoothstep(0.0, 0.22, mainArc - uv.y) * band1 * 0.22);
+
+      color += auroraColor * aurora * 1.08;
+      color += u_cyanColor * pow(rays, 1.22) * 0.28;
+      color += u_greenColor * band1 * 0.08;
+      color += auroraColor * volume * 0.22;
+
+      vec2 moonPos = vec2(0.8, 0.26);
+      float moonDist = length(uv - moonPos);
+      float moonDisk = smoothstep(0.019, 0.0, moonDist);
+      float moonCore = exp(-pow(moonDist / 0.017, 2.0));
+      float moonGlow = exp(-pow(moonDist / 0.072, 2.0));
+      float moonHalo = exp(-pow(moonDist / 0.17, 2.0));
+      float moonRim = smoothstep(0.03, 0.012, moonDist) * (1.0 - moonDisk * 0.65);
+      color += vec3(1.0, 0.995, 0.985) * moonDisk * 1.55;
+      color += vec3(0.96, 0.98, 1.0) * moonCore * 1.15;
+      color += vec3(0.84, 0.9, 1.0) * moonGlow * 0.82;
+      color += vec3(0.52, 0.68, 0.95) * moonHalo * 0.28;
+      color += vec3(0.86, 0.92, 1.0) * moonRim * 0.2;
+
+      float waterMask = 1.0 - smoothstep(horizon - 0.06, horizon + 0.005, uv.y);
+      vec2 reflUv = vec2(uv.x, horizon - (uv.y - horizon));
+      float reflection = exp(-pow((reflUv.y - mainArc) / 0.11, 2.0)) * 0.56;
+      reflection += exp(-pow((reflUv.y - sideArc) / 0.12, 2.0)) * 0.34;
+      reflection *= (0.36 + fbm(vec2(reflUv.x * 6.0 - t * 0.35, reflUv.y * 16.0)) * 0.64);
+      color = mix(color, color * 0.34 + u_greenColor * reflection * 0.46 + u_cyanColor * reflection * 0.08, waterMask);
+
+      float moonReflection = exp(-pow((uv.x - moonPos.x) / 0.024, 2.0)) * waterMask;
+      moonReflection *= exp(-pow((uv.y - (horizon * 0.58)) / 0.13, 2.0));
+      color += vec3(0.85, 0.9, 1.0) * moonReflection * 0.42;
+
+      float shoreline = smoothstep(0.0, 0.03, abs(uv.y - horizon)) * 0.16;
+      color += vec3(0.22, 0.16, 0.08) * shoreline * waterMask * 0.5;
+
+      float landLeft = smoothstep(0.0, 0.16, 0.22 - uv.y) * smoothstep(0.0, 0.24, uv.x);
+      float landRight = smoothstep(0.0, 0.22, 0.24 - uv.y) * smoothstep(0.72, 1.0, uv.x);
+      color -= vec3(0.08, 0.07, 0.05) * (landLeft * 0.9 + landRight * 1.2);
+
+      float vignette = smoothstep(1.35, 0.18, length(p * vec2(0.82, 0.95)));
+      color *= vignette;
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      speed: 0.46,
+      intensity: 1.16,
+      skyTop: [0.025, 0.08, 0.24],
+      skyBottom: [0.005, 0.04, 0.08],
+      greenColor: [0.08, 0.96, 0.42],
+      cyanColor: [0.08, 0.82, 0.72],
+      violetColor: [0.42, 0.34, 0.8]
+    };
+
+    function makeShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader));
+      }
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, makeShader(gl.VERTEX_SHADER, document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program));
+    }
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uSpeed = gl.getUniformLocation(program, "u_speed");
+    const uIntensity = gl.getUniformLocation(program, "u_intensity");
+    const uSkyTop = gl.getUniformLocation(program, "u_skyTop");
+    const uSkyBottom = gl.getUniformLocation(program, "u_skyBottom");
+    const uGreenColor = gl.getUniformLocation(program, "u_greenColor");
+    const uCyanColor = gl.getUniformLocation(program, "u_cyanColor");
+    const uVioletColor = gl.getUniformLocation(program, "u_violetColor");
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.floor(innerWidth * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function frame(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform1f(uSpeed, params.speed);
+      gl.uniform1f(uIntensity, params.intensity);
+      gl.uniform3fv(uSkyTop, params.skyTop);
+      gl.uniform3fv(uSkyBottom, params.skyBottom);
+      gl.uniform3fv(uGreenColor, params.greenColor);
+      gl.uniform3fv(uCyanColor, params.cyanColor);
+      gl.uniform3fv(uVioletColor, params.violetColor);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(frame);
+    }
+
+    const backLink = document.querySelector(".back-link");
+    const viewCodeLink = document.querySelector(".view-code-link");
+    const codeModal = document.querySelector(".code-modal");
+    const codeElement = document.querySelector(".code-block code");
+    const copyCodeButton = document.querySelector(".copy-code-button");
+    const closeCodeButton = document.querySelector(".close-code-button");
+    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
+    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
+    function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
+    viewCodeLink.addEventListener("click", openCodeModal);
+    closeCodeButton.addEventListener("click", closeCodeModal);
+    codeModal.addEventListener("click", (event) => { if (event.target === codeModal) closeCodeModal(); });
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCodeModal(); });
+    copyCodeButton.addEventListener("click", async () => { await navigator.clipboard.writeText(getSource()); copyCodeButton.textContent = "Copied"; window.setTimeout(() => { copyCodeButton.textContent = "Copy Code"; }, 1200); });
+    window.shaderControls = params;
+    if (window.self !== window.top) {
+      backLink.style.display = "none";
+      viewCodeLink.style.display = "none";
+    } else {
+      backLink.textContent = "← Back to Playground";
+    }
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

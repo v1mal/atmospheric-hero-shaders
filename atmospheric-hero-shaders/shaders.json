@@ -48,5 +48,15 @@
     "slug": "glass-veil",
     "title": "Glass Veil",
     "previewTime": 4.6
+  },
+  {
+    "slug": "satin-drape",
+    "title": "Satin Drape",
+    "previewTime": 4.0
+  },
+  {
+    "slug": "aurora-borealis",
+    "title": "Aurora Borealis",
+    "previewTime": 4.8
   }
 ]
