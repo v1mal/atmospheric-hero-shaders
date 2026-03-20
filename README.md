@@ -50,10 +50,10 @@ atmospheric-hero-shaders/
 - Each shader is a standalone HTML file.
 - The playground UI is shared, but shader visuals are self-contained per file.
 - The gallery currently uses lightweight live previews.
+- Preview generation is handled in GitHub Actions, not at runtime.
 
 ## Next
 
 Planned improvements:
-- GitHub Actions workflow for static preview image generation
 - cleanup of tracked macOS metadata files
 - more shader families and curated variants

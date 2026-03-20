@@ -20,7 +20,13 @@
       preserveDrawingBuffer: false
     });
 
-    const slug = new URLSearchParams(location.search).get("shader");
+    const searchParams = new URLSearchParams(location.search);
+    const slug = searchParams.get("shader");
+    const captureMode = searchParams.get("capture") === "1";
+    const requestedTime = Number(searchParams.get("t"));
+    const previewTime = Number.isFinite(requestedTime) ? requestedTime : 4.0;
+
+    window.__shaderPreviewReady = false;
 
     function fail(message) {
       document.body.innerHTML = '<div class="error">' + message + "</div>";
@@ -135,7 +141,7 @@
         lineColor: gl.getUniformLocation(program, "u_lineColor")
       };
 
-      function render(now) {
+      function draw(timeSeconds) {
         resize();
         gl.useProgram(program);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -143,7 +149,7 @@
         gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
 
         gl.uniform2f(uResolution, canvas.width, canvas.height);
-        gl.uniform1f(uTime, now * 0.001);
+        gl.uniform1f(uTime, timeSeconds);
 
         setUniform(uniformLocations.density, params.density);
         setUniform(uniformLocations.speed, params.speed);
@@ -164,6 +170,17 @@
         setUniform(uniformLocations.lineColor, params.lineColor);
 
         gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      if (captureMode) {
+        draw(previewTime);
+        window.__shaderPreviewReady = true;
+        document.documentElement.setAttribute("data-preview-ready", "true");
+        return;
+      }
+
+      function render(now) {
+        draw(now * 0.001);
         requestAnimationFrame(render);
       }
 

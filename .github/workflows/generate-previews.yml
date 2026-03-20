@@ -1,0 +1,71 @@
+name: Generate Shader Previews
+
+on:
+  workflow_dispatch:
+    inputs:
+      shader:
+        description: "Optional shader slug to generate"
+        required: false
+        type: string
+      force:
+        description: "Regenerate even if preview already exists"
+        required: false
+        default: false
+        type: boolean
+      commit_changes:
+        description: "Commit updated preview images back to main"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate previews
+        run: |
+          if [ -n "${{ inputs.shader }}" ] && [ "${{ inputs.force }}" = "true" ]; then
+            npm run generate-previews -- --shader "${{ inputs.shader }}" --force
+          elif [ -n "${{ inputs.shader }}" ]; then
+            npm run generate-previews -- --shader "${{ inputs.shader }}"
+          elif [ "${{ inputs.force }}" = "true" ]; then
+            npm run generate-previews:all
+          else
+            npm run generate-previews
+          fi
+
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shader-previews
+          path: atmospheric-hero-shaders/previews
+
+      - name: Commit generated previews
+        if: ${{ inputs.commit_changes }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add atmospheric-hero-shaders/previews
+          git diff --cached --quiet || git commit -m "Generate shader previews"
+          git push origin HEAD:main

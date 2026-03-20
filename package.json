@@ -1,0 +1,14 @@
+{
+  "name": "atmospheric-hero-shaders",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "generate-previews": "node scripts/generate-previews.js",
+    "generate-previews:all": "node scripts/generate-previews.js --all --force"
+  },
+  "dependencies": {
+    "playwright": "^1.58.2",
+    "sharp": "^0.34.4"
+  }
+}
