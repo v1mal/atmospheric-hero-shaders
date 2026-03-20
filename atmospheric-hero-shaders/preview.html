@@ -19,6 +19,7 @@
       premultipliedAlpha: false,
       preserveDrawingBuffer: false
     });
+    gl.getExtension("OES_standard_derivatives");
 
     const searchParams = new URLSearchParams(location.search);
     const slug = searchParams.get("shader");

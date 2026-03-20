@@ -68,5 +68,15 @@
     "slug": "nucleus-drift",
     "title": "Nucleus Drift",
     "previewTime": 4.0
+  },
+  {
+    "slug": "helix-void",
+    "title": "Helix Void",
+    "previewTime": 4.0
+  },
+  {
+    "slug": "helix-core",
+    "title": "Helix Core",
+    "previewTime": 4.0
   }
 ]
