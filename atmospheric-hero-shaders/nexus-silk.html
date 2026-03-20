@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Silk - Atmospheric Hero Shaders</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="./ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="./ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+  
+  <div class="code-modal" aria-hidden="true">
+    <div class="code-panel">
+      <div class="code-panel-header">
+        <span>Shader Source</span>
+        <div class="code-panel-actions">
+          <button class="code-button copy-code-button" type="button">Copy Code</button>
+          <button class="code-button close-code-button" type="button">Close</button>
+        </div>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-block"><code></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="x-shader/x-vertex" id="vertex-shader">
+    precision mediump float;
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script type="x-shader/x-fragment" id="fragment-shader">
+    precision highp float;
+    varying vec2 v_uv;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    
+    // Config injected via JS
+    uniform float u_speed;
+    uniform float u_softness;
+    uniform vec3 u_shadowColor;
+    uniform vec3 u_lightColor;
+
+    // 2d rotation matrix
+    mat2 rot(float t) {
+      float s = sin(t), c = cos(t);
+      return mat2(c, -s, s, c);
+    }
+
+    // ACES tonemap
+    vec3 aces(vec3 c) {
+      mat3 m1 = mat3(
+        0.59719, 0.07600, 0.02840,
+        0.35458, 0.90834, 0.13383,
+        0.04823, 0.01566, 0.83777
+      );
+      mat3 m2 = mat3(
+        1.60475, -0.10208, -0.00327,
+        -0.53108, 1.10813, -0.07276,
+        -0.07367, -0.00605, 1.07602
+      );
+      vec3 v = m1 * c;
+      vec3 a = v * (v + 0.0245786) - 0.000090537;
+      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+      return m2 * (a / b);
+    }
+
+    // High frequency white noise for film grain
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    // Dedicated Layered Starfield (Guaranteed visibility + Parallax)
+    vec3 getStars(vec2 uv, float t) {
+      vec3 col = vec3(0.0);
+      // Increased to 8 layers for much higher density and depth
+      for (float i=1.0; i<9.0; i++) {
+        // Project onto expanding planes 
+        float scale = i * 12.0;
+        // Shifted depth per layer to distribute stars evenly in the tunnel
+        float depth = fract(t * 0.14 * (1.0 + i * 0.05) + i * 0.531); 
+        
+        vec2 p = uv * scale * depth;
+        vec2 id = floor(p);
+        vec2 f = fract(p) - 0.5;
+        
+        float h = hash(id + i * 153.31);
+        // Lowered threshold (0.94) for significantly more stars
+        if (h > 0.94) {
+          float twinkle = sin(t * 12.0 + h * 500.0) * 0.5 + 0.5;
+          
+          // Sharp optical bloom for each star
+          float dist = length(f);
+          float starGlow = 0.005 / (dist * dist + 0.001);
+          starGlow = pow(starGlow, 1.1) * 0.2; // Keep them small but bright
+          
+          // Color variance (mostly white, some cyan/warm bits)
+          vec3 starColor = mix(vec3(1.0), vec3(0.7,0.9,1.0), h);
+          
+          col += starColor * starGlow * twinkle * (1.0 - depth); 
+        }
+      }
+      return col;
+    }
+
+    // Organic volumetric noise fields (From Snippet 2)
+    float n(vec2 p){
+       return sin(p.x*3.+sin(p.y*2.7))*cos(p.y*1.1+cos(p.x*2.3));
+    }
+
+    // Fractal Brownian Motion (FBM) for the fluid distortion
+    float f(vec3 p){
+        float v=0.,a=1.;
+        for(int i=0;i<6;i++) {
+           v+=n(p.xy+p.z*.5)*a;
+           p*=2.0;
+           a*=0.5;
+        }
+        return v;
+    }
+
+    void main() {
+      vec2 uv = v_uv * 2.0 - 1.0;
+      uv.x *= u_resolution.x / u_resolution.y;
+
+      vec3 o = vec3(0.0);
+      vec3 p;
+      float d;
+      float z = 0.0;
+      float t = u_time * u_speed;
+      float N;
+      
+      // Raymarching iteration (Constrained to 35 steps for performance)
+      for (float i=0.0; i < 35.0; i++) {
+          
+          // Tunnel camera projection
+          p = z * normalize(vec3(uv, 1.0));
+          p.z += t * 1.5; // Infinite forward motion
+          
+          // Elegant spiraling structure
+          mat2 R = rot(p.z * 0.6 + t * 0.2); 
+          p.xy *= R;
+          
+          // Organic fluid displacement using the FBM noise
+          N = f(p + t * 0.25);
+          
+          // --- GEOMETRY SHIFT: Silk Ribbons ---
+          // Instead of Snippet 2's typical round tunnel, we warp the space into a 3-petaled
+          // twisting ribbon to make it feel structurally distinct and extremely organic.
+          // Added +0.0001 to p.x to absolutely prevent atan(0.0, 0.0) NaN crashing the shader!
+          float shapeAngle = atan(p.y, p.x + 0.0001);
+          float ribbonRadius = 1.0 + 0.5 * sin(shapeAngle * 3.0 + p.z * 0.8);
+          
+          // Distance field mapped to the silk ribbons
+          d = length(p.xy) - ribbonRadius + N * 0.4;
+          
+          // Render as a hollow, glowing shell
+          d = abs(d) + 0.02;
+          
+          // --- CUSTOM IRIDESCENT SILK COLORS ---
+          vec3 colBase = mix(vec3(0.5, 0.0, 0.8), u_lightColor, 0.5);
+          vec3 colAccent = vec3(0.0, 0.9, 0.7);
+          vec3 colSparkle = vec3(1.0, 0.85, 0.4);
+          
+          vec3 c = colBase / (length(p.xy + N) * 0.8 + 0.01);
+          c += colAccent / (abs(length(p.xy) - ribbonRadius + N) * 2.0 + 0.1);
+          c += colSparkle * (0.5 + 0.5 * sin(N * 3.0 + t));
+          
+          // Smooth fade for distant volumes
+          float fade = exp(-z * 0.25);
+          
+          // --- SHARPENED GLOW ACCUMULATION ---
+          // Using 1.0/(d*d) instead of 1.0/d to keep the 'mist' out of the center
+          // of the tunnel, leaving room for the stars!
+          o += c * (0.01 / (d * d + 0.01)) * fade * u_softness * 3.0;
+          
+          // Safe raymarch step size
+          z += d * 0.5; 
+      }
+
+      // --- HIGH-INTENSITY STARFIELD ---
+      // Adding it after the raymarch loop and boosting intensity
+      o += getStars(uv, t) * 80.0;
+      
+      // Final lighting adjustment
+      // Slightly more aggressive scaling to make stars pop
+      vec3 cOut = aces(o * 0.015);
+      
+      // Shadow anchoring to ensure the background maps correctly to our project parameters
+      cOut = max(cOut, mix(u_shadowColor, vec3(0.0), 0.5));
+      
+      // Cinematic Film Grain
+      float grain = hash(uv * 1000.0 + t) * 0.04;
+      cOut += (grain - 0.02);
+
+      gl_FragColor = vec4(cOut, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    // Global parameters
+    const params = {
+      speed: 0.15, 
+      softness: 1.0,
+      shadowColor: [0.0, 0.02, 0.08],
+      lightColor: [0.0, 0.4, 0.9]
+    };
+    
+    window.shaderControls = params;
+
+    const vsSource = document.getElementById("vertex-shader").textContent;
+    const fsSource = document.getElementById("fragment-shader").textContent;
+
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error("Shader compile error:", gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+      }
+      return shader;
+    }
+
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fsSource);
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const positions = new Float32Array([
+      -1, -1,  1, -1,  -1, 1,
+      -1,  1,  1, -1,   1, 1,
+    ]);
+    gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+    const uniformLocations = {
+      resolution: gl.getUniformLocation(program, "u_resolution"),
+      time: gl.getUniformLocation(program, "u_time"),
+      speed: gl.getUniformLocation(program, "u_speed"),
+      softness: gl.getUniformLocation(program, "u_softness"),
+      shadowColor: gl.getUniformLocation(program, "u_shadowColor"),
+      lightColor: gl.getUniformLocation(program, "u_lightColor")
+    };
+
+    function render(time) {
+      window.shaderTime = time * 0.001;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      
+      gl.uniform2f(uniformLocations.resolution, canvas.width, canvas.height);
+      gl.uniform1f(uniformLocations.time, window.shaderTime);
+      gl.uniform1f(uniformLocations.speed, params.speed);
+      gl.uniform1f(uniformLocations.softness, params.softness);
+      gl.uniform3fv(uniformLocations.shadowColor, params.shadowColor);
+      gl.uniform3fv(uniformLocations.lightColor, params.lightColor);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    function resize() {
+      canvas.width = window.innerWidth * window.devicePixelRatio;
+      canvas.height = window.innerHeight * window.devicePixelRatio;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(render);
+  </script>
+
+  <!-- Shared UI Modals -->
+  <script src="ui.js"></script>
+</body>
+</html>

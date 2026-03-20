@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blue Vortex</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 50%, #030d1a 0%, #010408 60%, #000000 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="./ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="./ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+  <div class="code-modal" aria-hidden="true">
+    <div class="code-panel">
+      <div class="code-panel-header">
+        <span>Shader Source</span>
+        <div class="code-panel-actions">
+          <button class="code-button copy-code-button" type="button">Copy Code</button>
+          <button class="code-button close-code-button" type="button">Close</button>
+        </div>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-block"><code></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_softness;
+    uniform vec3 u_shadowColor;
+    uniform vec3 u_lightColor;
+
+    // 2d rotation matrix
+    vec2 rot(vec2 v, float t) {
+      float s = sin(t), c = cos(t);
+      return mat2(c, -s, s, c) * v;
+    }
+
+    // ACES tonemap
+    vec3 aces(vec3 c) {
+      mat3 m1 = mat3(
+        0.59719, 0.07600, 0.02840,
+        0.35458, 0.90834, 0.13383,
+        0.04823, 0.01566, 0.83777
+      );
+      mat3 m2 = mat3(
+        1.60475, -0.10208, -0.00327,
+        -0.53108, 1.10813, -0.07276,
+        -0.07367, -0.00605, 1.07602
+      );
+      vec3 v = m1 * c;
+      vec3 a = v * (v + 0.0245786) - 0.000090537;
+      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+      return m2 * (a / b);
+    }
+
+    // Xor's Dot Noise (Volumetric)
+    float n(vec3 p) {
+      const float PHI = 1.618033988;
+      const mat3 GOLD = mat3(
+        -0.571464913, +0.814921382, +0.096597072,
+        -0.278044873, -0.303026659, +0.911518454,
+        +0.772087367, +0.494042493, +0.399753815
+      );
+      return dot(cos(GOLD * p), sin(PHI * p * GOLD));
+    }
+
+    // High frequency white noise for film grain
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    void main() {
+      vec2 uv = v_uv * 2.0 - 1.0;
+      uv.x *= u_resolution.x / u_resolution.y;
+
+      float t = u_time * u_speed;
+      vec3 l = vec3(0.0);
+
+      // Accumulate 8 layers for the pseudo-3D volume
+      for (float i = 0.0; i < 8.0; i++) {
+        float z = i / 8.0; // Depth factor
+
+        vec2 p = uv;
+        
+        // Perspective tilt & parallax
+        p.y *= 2.2; 
+        p.y += z * 0.4;
+        
+        // Scale for volumetric depth scaling 
+        p *= mix(0.8, 1.8, z);
+
+        float dist = length(p);
+        float a = atan(p.y, p.x);
+
+        // Dynamic spiral motion
+        float swirl = a + t * 0.8 - (2.0 / (dist + 0.2));
+        
+        // Outward radial flow (creates the "spiraling up/out" effect)
+        float flowOffset = t * 12.0;
+
+        // Cartesian grid mapping (Subtracting offset pushes the grid rings outwards)
+        vec2 cartesian = vec2(cos(swirl), sin(swirl)) * (dist * 40.0 - flowOffset);
+
+        // Substantial vitreous liquid distortion
+        vec2 distortion = rot(sin(cartesian * 0.4), t * 1.5 + z * 3.0);
+        cartesian += distortion * 1.0;
+        
+        vec2 id = floor(cartesian);
+        vec2 f = fract(cartesian) - 0.5;
+        
+        // Noise per grid cell
+        float n_val = n(vec3(id * 0.1, z * 10.0)) * 0.5 + 0.5;
+        
+        // Render the sharp liquid drop exactly as a round dot. 
+        // The earlier `distortion * 1.0` math naturally turns some into squished ovals.
+        float drop = smoothstep(0.4, 0.05, length(f));
+        
+        // Constrain the liquid volume to distinct spiral arms
+        float arms = sin(swirl * 5.0 - dist * 3.0) * 0.5 + 0.5;
+        arms = pow(arms, 1.5);
+        
+        // Density threshold
+        float sparsity = mix(0.85, 0.4, arms);
+        float isParticle = smoothstep(sparsity, sparsity + 0.1, n_val);
+        
+        // Fade out perfectly at the center and edges
+        float fade = smoothstep(2.5, 0.1, dist);
+        float coreMask = smoothstep(0.05, 0.25, dist);
+        
+        // --- ADAPTED MULTI-CHROMATIC COLORS ---
+        // Blend exact colors found in reference image: Cyan, Deep Blue, Copper/Orange
+        vec3 colCyan = vec3(0.0, 0.8, 1.0);
+        vec3 colBlue = vec3(0.0, 0.1, 0.6);
+        vec3 colOrange = vec3(1.0, 0.35, 0.0);
+        
+        // Color mapping driven by noise fields
+        vec3 pCol = mix(colBlue, colCyan, smoothstep(0.4, 1.0, n_val));
+        // Subtly inject orange/copper into the lower mid-range noise
+        pCol = mix(colOrange, pCol, smoothstep(0.1, 0.45, n_val));
+        
+        // Twinkle
+        float twinkle = sin(t * 8.0 + n_val * 50.0) * 0.5 + 0.5;
+
+        // Multiply by pCol instead of the old phase shifted white light
+        l += pCol * drop * isParticle * fade * coreMask * twinkle * (1.0 - z);
+      }
+
+      // Final compositing & light shaping
+      l = l * 1.8 * u_softness;
+      
+      // We no longer universally tint the scene so we preserve the distinct orange accents.
+      // But we still apply a baseline tint based on u_lightColor to blend everything natively.
+      vec3 tinted = l * mix(vec3(1.0), u_lightColor, 0.3);
+      
+      // Central Core
+      vec2 coreP = uv;
+      coreP.y *= 2.2;
+      float coreR = length(coreP);
+      
+      // Sharp inner star (Inverse square falloff for natural bloom)
+      float coreGlow = 0.01 / (coreR * coreR + 0.01);
+      float coreAura = exp(-coreR * 3.0); // Soft wide ambient aura
+      
+      // Mix core lighting (Muted blue instead of pure white)
+      vec3 coreBright = mix(u_lightColor, vec3(1.0), 0.2); 
+      tinted += coreBright * coreGlow * u_softness;
+      tinted += u_lightColor * coreAura * u_softness * 0.8;
+
+      // Tonemap via ACES
+      vec3 c = aces(tinted);
+      
+      // Base shadow background
+      c = max(c, mix(u_shadowColor, vec3(0.0), 0.5));
+      
+      // Cinematic Film Grain
+      // This prevents gradient banding in the dark background and adds a high-end tactile feel
+      float grain = hash(uv * 1000.0 + t) * 0.04;
+      c += (grain - 0.02);
+
+      gl_FragColor = vec4(c, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    // Tweakable parameters matching standard UI integration
+    const params = {
+      speed: 0.075, // Halved speed for an ultra-smooth, slow drift
+      softness: 1.2,
+      shadowColor: [0.0, 0.05, 0.15],
+      lightColor: [0.1, 0.5, 1.0]
+    };
+
+    function compile(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader));
+      }
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, compile(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program));
+    }
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uSpeed = gl.getUniformLocation(program, "u_speed");
+    const uSoftness = gl.getUniformLocation(program, "u_softness");
+    const uShadowColor = gl.getUniformLocation(program, "u_shadowColor");
+    const uLightColor = gl.getUniformLocation(program, "u_lightColor");
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.floor(innerWidth * dpr);
+      canvas.height = Math.floor(innerHeight * dpr);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform1f(uSpeed, params.speed);
+      gl.uniform1f(uSoftness, params.softness);
+      gl.uniform3fv(uShadowColor, params.shadowColor);
+      gl.uniform3fv(uLightColor, params.lightColor);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    // Standard Playground UI injection code
+    const backLink = document.querySelector(".back-link");
+    const viewCodeLink = document.querySelector(".view-code-link");
+    const codeModal = document.querySelector(".code-modal");
+    const codeElement = document.querySelector(".code-block code");
+    const copyCodeButton = document.querySelector(".copy-code-button");
+    const closeCodeButton = document.querySelector(".close-code-button");
+    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
+    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
+    function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
+    viewCodeLink.addEventListener("click", openCodeModal);
+    closeCodeButton.addEventListener("click", closeCodeModal);
+    codeModal.addEventListener("click", (event) => { if (event.target === codeModal) closeCodeModal(); });
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCodeModal(); });
+    copyCodeButton.addEventListener("click", async () => { await navigator.clipboard.writeText(getSource()); copyCodeButton.textContent = "Copied"; window.setTimeout(() => { copyCodeButton.textContent = "Copy Code"; }, 1200); });
+    window.shaderControls = params;
+    if (window.self !== window.top) {
+      backLink.style.display = "none";
+      viewCodeLink.style.display = "none";
+    } else {
+      backLink.textContent = "← Back to Playground";
+    }
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
