@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Extinguish Smoke</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 35%, #121416 0%, #070809 60%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.05), transparent 28%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.025), transparent 24%);
+      mix-blend-mode: screen;
+    }
+  </style>
+  <link rel="stylesheet" href="./ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="./ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+  <div class="overlay"></div>
+  <div class="code-modal" aria-hidden="true">
+    <div class="code-panel">
+      <div class="code-panel-header">
+        <span>Shader Source</span>
+        <div class="code-panel-actions">
+          <button class="code-button copy-code-button" type="button">Copy Code</button>
+          <button class="code-button close-code-button" type="button">Close</button>
+        </div>
+      </div>
+      <div class="code-scroll">
+        <pre class="code-block"><code></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_density;
+    uniform float u_speed;
+    uniform float u_contrast;
+    uniform vec3 u_baseColor;
+    uniform vec3 u_glowColor;
+
+    #define PI 3.14159265359
+    #define ITERATIONS 7
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 p) {
+      float value = 0.0;
+      float amplitude = 0.5;
+
+      for (int i = 0; i < 4; i++) {
+        value += amplitude * noise(p);
+        p = p * 2.03 + vec2(13.7, 7.1);
+        amplitude *= 0.5;
+      }
+
+      return value;
+    }
+
+    vec2 flow(vec2 p, float t) {
+      float n1 = fbm(p * 1.1 + vec2(0.0, t * 0.12));
+      float n2 = fbm(p * 1.35 + vec2(4.2, -t * 0.1));
+      float angle = (n1 - n2) * PI * 1.5 + 0.35 * sin(p.y * 1.2 + t * 0.25);
+      return vec2(cos(angle), sin(angle));
+    }
+
+    void main() {
+      vec2 uv = v_uv * 2.0 - 1.0;
+      uv.x *= u_resolution.x / u_resolution.y;
+
+      float t = u_time * u_speed;
+      vec2 p = uv;
+      vec2 centerWarp = vec2(0.0, -0.12);
+
+      float smoke = 0.0;
+      float veil = 0.0;
+      float fade = exp(-dot(uv - centerWarp, uv - centerWarp) * 1.6);
+
+      for (int i = 0; i < ITERATIONS; i++) {
+        float fi = float(i);
+        float layer = fi / float(ITERATIONS - 1);
+        vec2 q = p;
+        q.y += layer * 1.15 - 0.45;
+        q.x *= 0.72 + layer * 0.38;
+
+        vec2 dir = flow(q * (1.1 + layer * 0.65), t + fi * 0.21);
+        q += dir * (0.13 + layer * 0.04);
+        q.x += 0.18 * sin(q.y * 2.4 + t * 0.34 + fi);
+
+        float spine = abs(q.x);
+        float ribbon = smoothstep(0.22, 0.015, spine);
+        float breakup = smoothstep(0.22, 0.92, fbm(q * 2.8 + vec2(0.0, -t * 0.18 + fi)));
+        float wisps = smoothstep(0.52, 0.88, fbm(q * 4.5 + dir * 0.8 + fi * 3.1));
+
+        smoke += ribbon * breakup * (0.23 + wisps * 0.7) * (1.0 - layer * 0.08);
+        veil += smoothstep(0.55, 0.92, fbm(q * 1.8 + fi * 1.7)) * 0.07;
+
+        p += dir * 0.02;
+      }
+
+      smoke *= u_density * fade;
+      veil *= fade * 0.85;
+
+      float intensity = smoke + veil * 0.6;
+      intensity = 1.0 - exp(-intensity * u_contrast);
+
+      vec3 color = mix(u_baseColor, u_glowColor, clamp(intensity * 1.25, 0.0, 1.0));
+      color += vec3(1.0) * pow(clamp(smoke, 0.0, 1.0), 2.0) * 0.15;
+
+      float vignette = smoothstep(1.45, 0.25, length(uv + vec2(0.0, 0.08)));
+      color *= vignette;
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", {
+      antialias: false,
+      alpha: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: false
+    });
+
+    const vertexSource = document.getElementById("vertex-shader").textContent.trim();
+    const fragmentSource = document.getElementById("fragment-shader").textContent.trim();
+
+    const params = {
+      density: 1.18,
+      speed: 0.42,
+      contrast: 1.95,
+      baseColor: [0.03, 0.035, 0.04],
+      glowColor: [0.92, 0.94, 0.96]
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader));
+      }
+      return shader;
+    }
+
+    function createProgram(vs, fs) {
+      const program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(program));
+      }
+      return program;
+    }
+
+    const program = createProgram(
+      createShader(gl.VERTEX_SHADER, vertexSource),
+      createShader(gl.FRAGMENT_SHADER, fragmentSource)
+    );
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uDensity = gl.getUniformLocation(program, "u_density");
+    const uSpeed = gl.getUniformLocation(program, "u_speed");
+    const uContrast = gl.getUniformLocation(program, "u_contrast");
+    const uBaseColor = gl.getUniformLocation(program, "u_baseColor");
+    const uGlowColor = gl.getUniformLocation(program, "u_glowColor");
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.floor(innerWidth * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform1f(uDensity, params.density);
+      gl.uniform1f(uSpeed, params.speed);
+      gl.uniform1f(uContrast, params.contrast);
+      gl.uniform3fv(uBaseColor, params.baseColor);
+      gl.uniform3fv(uGlowColor, params.glowColor);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    const backLink = document.querySelector(".back-link");
+    const viewCodeLink = document.querySelector(".view-code-link");
+    const codeModal = document.querySelector(".code-modal");
+    const codeElement = document.querySelector(".code-block code");
+    const copyCodeButton = document.querySelector(".copy-code-button");
+    const closeCodeButton = document.querySelector(".close-code-button");
+
+    function escapeHtml(value) {
+      return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function getSource() {
+      return "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    }
+
+    function openCodeModal() {
+      codeElement.innerHTML = escapeHtml(getSource());
+      codeModal.classList.add("is-open");
+      codeModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCodeModal() {
+      codeModal.classList.remove("is-open");
+      codeModal.setAttribute("aria-hidden", "true");
+    }
+
+    viewCodeLink.addEventListener("click", openCodeModal);
+    closeCodeButton.addEventListener("click", closeCodeModal);
+    codeModal.addEventListener("click", (event) => {
+      if (event.target === codeModal) closeCodeModal();
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeCodeModal();
+    });
+    copyCodeButton.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(getSource());
+      copyCodeButton.textContent = "Copied";
+      window.setTimeout(() => {
+        copyCodeButton.textContent = "Copy Code";
+      }, 1200);
+    });
+
+    window.shaderControls = params;
+    if (window.self !== window.top) {
+      backLink.style.display = "none";
+      viewCodeLink.style.display = "none";
+    } else {
+      backLink.textContent = "← Back to Playground";
+    }
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

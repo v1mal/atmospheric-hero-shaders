@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auric Mist</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 24%, #2a2616 0%, #13120c 34%, #060706 100%);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+  </style>
+  <link rel="stylesheet" href="./ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="./ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+  <div class="code-modal" aria-hidden="true"><div class="code-panel"><div class="code-panel-header"><span>Shader Source</span><div class="code-panel-actions"><button class="code-button copy-code-button" type="button">Copy Code</button><button class="code-button close-code-button" type="button">Close</button></div></div><div class="code-scroll"><pre class="code-block"><code></code></pre></div></div></div>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_density;
+    uniform vec3 u_shadowColor;
+    uniform vec3 u_goldColor;
+    uniform vec3 u_highlightColor;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(93.7, 271.9))) * 41358.372);
+    }
+
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      float a = hash(i);
+      float b = hash(i + vec2(1.0, 0.0));
+      float c = hash(i + vec2(0.0, 1.0));
+      float d = hash(i + vec2(1.0, 1.0));
+      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+    }
+
+    float fbm(vec2 p) {
+      float v = 0.0;
+      float a = 0.5;
+      for (int i = 0; i < 5; i++) {
+        v += noise(p) * a;
+        p = mat2(1.6, -1.1, 1.1, 1.6) * p + vec2(6.0, 3.0);
+        a *= 0.55;
+      }
+      return v;
+    }
+
+    void main() {
+      vec2 uv = v_uv * 2.0 - 1.0;
+      uv.x *= u_resolution.x / u_resolution.y;
+
+      float t = u_time * u_speed;
+      vec2 p = uv;
+
+      float baseField = fbm(p * 1.1 + vec2(0.0, -t * 0.06));
+      float ribbonField = fbm(p * 2.1 + vec2(t * 0.04, -t * 0.09));
+      float detailField = fbm(p * 4.0 + vec2(-t * 0.08, t * 0.03));
+
+      float column = exp(-abs(uv.x) * 1.7);
+      float fog = smoothstep(0.3, 0.92, baseField) * 0.72;
+      float ribbons = smoothstep(0.48, 0.88, ribbonField + detailField * 0.22);
+      float sparks = smoothstep(0.68, 0.94, detailField + ribbonField * 0.3);
+
+      float fade = smoothstep(1.3, 0.15, length(uv + vec2(0.0, 0.04)));
+      float intensity = (fog * 0.75 + ribbons * 0.55) * column * fade * u_density;
+      float gild = ribbons * column * 0.7 + sparks * 0.45;
+
+      vec3 color = mix(u_shadowColor, u_goldColor, clamp(intensity, 0.0, 1.0));
+      color = mix(color, u_highlightColor, clamp(gild, 0.0, 1.0) * 0.7);
+      color += u_highlightColor * pow(sparks, 2.0) * 0.08;
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      speed: 0.24,
+      density: 1.02,
+      shadowColor: [0.035, 0.04, 0.03],
+      goldColor: [0.62, 0.54, 0.28],
+      highlightColor: [0.94, 0.88, 0.68]
+    };
+
+    function makeShader(type, source) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, source);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, makeShader(gl.VERTEX_SHADER, document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+
+    const aPosition = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uSpeed = gl.getUniformLocation(program, "u_speed");
+    const uDensity = gl.getUniformLocation(program, "u_density");
+    const uShadowColor = gl.getUniformLocation(program, "u_shadowColor");
+    const uGoldColor = gl.getUniformLocation(program, "u_goldColor");
+    const uHighlightColor = gl.getUniformLocation(program, "u_highlightColor");
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.floor(innerWidth * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform1f(uSpeed, params.speed);
+      gl.uniform1f(uDensity, params.density);
+      gl.uniform3fv(uShadowColor, params.shadowColor);
+      gl.uniform3fv(uGoldColor, params.goldColor);
+      gl.uniform3fv(uHighlightColor, params.highlightColor);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    const backLink = document.querySelector(".back-link");
+    const viewCodeLink = document.querySelector(".view-code-link");
+    const codeModal = document.querySelector(".code-modal");
+    const codeElement = document.querySelector(".code-block code");
+    const copyCodeButton = document.querySelector(".copy-code-button");
+    const closeCodeButton = document.querySelector(".close-code-button");
+    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
+    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
+    function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
+    viewCodeLink.addEventListener("click", openCodeModal);
+    closeCodeButton.addEventListener("click", closeCodeModal);
+    codeModal.addEventListener("click", (event) => { if (event.target === codeModal) closeCodeModal(); });
+    window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCodeModal(); });
+    copyCodeButton.addEventListener("click", async () => { await navigator.clipboard.writeText(getSource()); copyCodeButton.textContent = "Copied"; window.setTimeout(() => { copyCodeButton.textContent = "Copy Code"; }, 1200); });
+    window.shaderControls = params;
+    if (window.self !== window.top) {
+      backLink.style.display = "none";
+      viewCodeLink.style.display = "none";
+    } else {
+      backLink.textContent = "← Back to Playground";
+    }
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
