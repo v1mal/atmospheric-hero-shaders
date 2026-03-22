@@ -93,5 +93,10 @@
     "slug": "starfield",
     "title": "Star Field",
     "previewTime": 4.5
+  },
+  {
+    "slug": "ocean-labs",
+    "title": "Ocean Labs",
+    "previewTime": 4.0
   }
 ]
