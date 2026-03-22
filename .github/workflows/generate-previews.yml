@@ -1,6 +1,12 @@
 name: Generate Shader Previews
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "atmospheric-hero-shaders/*.html"
+      - "atmospheric-hero-shaders/shaders.json"
+      - "scripts/generate-previews.js"
   workflow_dispatch:
     inputs:
       shader:
@@ -11,11 +17,6 @@ on:
         description: "Regenerate even if preview already exists"
         required: false
         default: false
-        type: boolean
-      commit_changes:
-        description: "Commit updated preview images back to main"
-        required: false
-        default: true
         type: boolean
 
 permissions:
@@ -61,7 +62,6 @@ jobs:
           path: atmospheric-hero-shaders/previews
 
       - name: Commit generated previews
-        if: ${{ inputs.commit_changes }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
