@@ -11,7 +11,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #04060b;
+      background: #000002;
     }
 
     canvas {
@@ -48,107 +48,104 @@
     uniform vec2 u_resolution;
     uniform float u_time;
     uniform float u_speed;
-    uniform float u_intensity;
-    uniform vec3 u_bgColor;
-    uniform vec3 u_midColor;
-    uniform vec3 u_highColor;
-    uniform vec3 u_highlightColor;
 
-    #define PI 3.14159265359
+    #define PI  3.14159265359
     #define TAU 6.28318530718
 
-    float hash(float n) {
-      return fract(sin(n) * 43758.5453123);
-    }
-
-    float hash(vec2 p) {
-      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-    }
-
-    vec2 hash2(vec2 p) {
+    float hash(float n) { return fract(sin(n) * 43758.5453123); }
+    float hash(vec2 p)  { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
+    vec2  hash2(vec2 p) {
       return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453123);
     }
 
     float noise(vec2 p) {
-      vec2 i = floor(p);
-      vec2 f = fract(p);
+      vec2 i = floor(p); vec2 f = fract(p);
       vec2 u = f * f * (3.0 - 2.0 * f);
-      float a = hash(i);
-      float b = hash(i + vec2(1.0, 0.0));
-      float c = hash(i + vec2(0.0, 1.0));
-      float d = hash(i + vec2(1.0, 1.0));
-      return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
     }
 
     float fbm(vec2 p) {
-      float value = 0.0;
-      float amp = 0.5;
-      for (int i = 0; i < 5; i++) {
-        value += noise(p) * amp;
-        p = mat2(1.72, -1.18, 1.18, 1.72) * p + vec2(4.6, 2.8);
-        amp *= 0.52;
+      float v = 0.0; float a = 0.5;
+      for (int i = 0; i < 6; i++) {
+        v += a * noise(p);
+        p = mat2(1.6, -1.2, 1.2, 1.6) * p;
+        a *= 0.5;
       }
-      return value;
+      return v;
     }
 
-    vec3 acesTonemap(vec3 x) {
-      const float a = 2.51;
-      const float b = 0.03;
-      const float c = 2.43;
-      const float d = 0.59;
-      const float e = 0.14;
-      return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
     }
 
-    float starField(vec2 uv, float threshold) {
-      vec2 grid = uv * vec2(260.0, 150.0);
-      vec2 cell = floor(grid);
-      vec2 local = fract(grid) - 0.5;
-      vec2 rnd = hash2(cell);
-      float star = step(threshold, rnd.x);
-      float dist = length(local - (rnd - 0.5) * 0.45);
-      float twinkle = 0.75 + 0.25 * sin(u_time * 0.6 + rnd.x * TAU);
-      return star * smoothstep(0.12, 0.0, dist) * twinkle;
-    }
+    vec3 starLayers(vec2 uv, float t) {
+      vec3 out_col = vec3(0.0);
+      for (int layer = 0; layer < 4; layer++) {
+        float lf = float(layer);
+        float scale     = 10.0 + lf * 20.0;   // sparser foreground, denser background
+        float baseBright = 0.85 - lf * 0.12;
+        float baseSize   = 0.016 - lf * 0.002;
 
-    float debrisField(float radius, float angle, float t) {
-      float angle01 = (angle + PI) / TAU;
-      vec2 grid = vec2(angle01 * 48.0 + t * 0.04 / (radius + 0.4), radius * 22.0 - t * 0.08);
-      vec2 cell = floor(grid);
-      vec2 local = fract(grid) - 0.5;
-      vec2 rnd = hash2(cell);
-      local -= (rnd - 0.5) * vec2(0.9, 0.55);
-      float particle = smoothstep(0.12 + rnd.y * 0.08, 0.0, length(local));
-      float ringWeight = smoothstep(0.24, 0.44, radius) * (1.0 - smoothstep(0.82, 1.18, radius));
-      return particle * step(0.84, rnd.x) * ringWeight;
-    }
+        vec2 grid    = floor(uv * scale);
+        vec2 localUv = fract(uv * scale) - 0.5;
 
-    float ringLayer(vec2 uv, float radius, float angle, float t, float phase, float scaleBias) {
-      vec2 warpPos = vec2(angle * 1.35 + phase, radius * 6.8 - t * 0.08 + phase * 0.35);
-      float warpA = fbm(warpPos);
-      float warpB = fbm(warpPos * 1.85 + vec2(4.0, -2.5));
-      float warpedAngle = angle + (warpA - 0.5) * 1.25 + t * 0.18 / (radius + 0.3);
-      float warpedRadius = radius + (warpB - 0.5) * 0.07;
+        vec2 starPos = vec2(
+          hash(grid + lf * 100.0) - 0.5,
+          hash(grid + lf * 100.0 + vec2(47.0, 93.0)) - 0.5
+        ) * 0.60;
 
-      vec2 curlDir = vec2(cos(warpedAngle), sin(warpedAngle));
-      vec2 flowUv = uv + curlDir * (warpA - 0.5) * 0.08 * scaleBias;
-      float flowR = length(flowUv);
-      float flowA = atan(flowUv.y, flowUv.x);
+        float dist     = length(localUv - starPos);
+        float starSeed = hash(grid + lf * 200.0 + vec2(13.0, 71.0));
+        float starSize = baseSize * (0.3 + starSeed * 0.7);
+        float coreR    = starSize * 0.5;
 
-      float ringCenter = 0.48 + scaleBias * 0.015;
-      float ringInner = ringCenter - 0.125;
-      float ringOuter = ringCenter + 0.16;
-      float ringMask = smoothstep(ringOuter, ringCenter + 0.03, flowR) * (1.0 - smoothstep(ringCenter - 0.03, ringInner, flowR));
+        float star = exp(-dist * dist / (coreR * coreR)) * baseBright;
 
-      float low = fbm(vec2(flowA * 1.8 + phase, flowR * 4.2 - t * 0.05));
-      float mid = fbm(vec2(cos(warpedAngle), sin(warpedAngle)) * 2.4 + vec2(flowR * 7.0 - t * 0.12, flowR * 5.0 + t * 0.09));
-      float high = fbm(vec2(flowA * 9.0 - t * 0.22, flowR * 18.0 + phase * 3.0));
+        float twinklePhase = starSeed * TAU;
+        float twinkleSpd   = 0.8 + starSeed * 2.0;
+        float twinkle      = 0.5 + 0.5 * sin(t * twinkleSpd + twinklePhase);
+        float flicker      = 0.85 + 0.15 * sin(t * (3.0 + starSeed * 4.0) + starSeed * 10.0);
+        star *= twinkle * flicker;
 
-      float cloud = smoothstep(0.36, 0.92, low * 0.5 + mid * 0.7 + high * 0.35);
-      float filaments = pow(smoothstep(0.46, 0.96, mid * 0.65 + high * 0.8), 1.6);
-      float swirl = smoothstep(0.25, 0.9, 1.0 - abs(sin(flowA * 3.0 - flowR * 14.0 + t * 0.4 + phase)) * 0.8);
+        // Multi-stop star color palette: vivid blue → blue-white → white → yellow → orange → red
+        float cs = fract(starSeed * 7.31 + 0.37);
+        vec3 sc0 = vec3(0.42, 0.62, 1.00); // vivid blue       (~12%)
+        vec3 sc1 = vec3(0.78, 0.88, 1.00); // blue-white       (~30%)
+        vec3 sc2 = vec3(1.00, 1.00, 0.93); // white            (~18%)
+        vec3 sc3 = vec3(1.00, 0.90, 0.55); // warm yellow      (~15%)
+        vec3 sc4 = vec3(1.00, 0.58, 0.18); // orange           (~14%)
+        vec3 sc5 = vec3(1.00, 0.28, 0.08); // red-orange       (~11%)
+        vec3 starColor = sc0;
+        starColor = mix(starColor, sc1, smoothstep(0.00, 0.12, cs));
+        starColor = mix(starColor, sc2, smoothstep(0.12, 0.42, cs));
+        starColor = mix(starColor, sc3, smoothstep(0.42, 0.60, cs));
+        starColor = mix(starColor, sc4, smoothstep(0.60, 0.78, cs));
+        starColor = mix(starColor, sc5, smoothstep(0.78, 1.00, cs));
+        out_col += starColor * star;
 
-      return ringMask * (cloud * 0.8 + filaments * 0.7 + swirl * 0.3);
+        // Soft glow halo on ~15% of stars in first 2 layers — inherits star color
+        float glowChance = hash(grid + lf * 300.0 + vec2(31.0, 59.0));
+        if (layer < 2 && glowChance > 0.85) {
+          float glowR     = starSize * (2.0 + glowChance * 3.0);
+          float glow      = exp(-dist * dist / (glowR * glowR)) * 0.22;
+          float glowPulse = 0.6 + 0.4 * sin(t * (0.4 + starSeed * 0.8) + starSeed * 5.0);
+          out_col += starColor * glow * glowPulse;
+        }
+
+        // Diffraction spikes on ~5% of stars in layer 0 only
+        if (layer == 0 && glowChance > 0.95) {
+          vec2 d = localUv - starPos;
+          float spikeLen = starSize * 18.0;
+          float spikeW   = starSize * 0.12;
+          float hSpike = exp(-d.y*d.y / (spikeW*spikeW)) * exp(-abs(d.x) / spikeLen);
+          float vSpike = exp(-d.x*d.x / (spikeW*spikeW)) * exp(-abs(d.y) / spikeLen);
+          float spikes = (hSpike + vSpike) * 0.35;
+          float spikePulse = 0.7 + 0.3 * sin(t * 0.6 + starSeed * 4.0);
+          out_col += vec3(0.88, 0.90, 1.0) * spikes * spikePulse * 0.5;
+        }
+      }
+      return out_col;
     }
 
     void main() {
@@ -156,74 +153,133 @@
       uv.x *= u_resolution.x / u_resolution.y;
       float t = u_time * u_speed;
 
-      float radius = length(uv);
+      float r     = length(uv);
       float angle = atan(uv.y, uv.x);
 
-      vec3 color = mix(u_bgColor, vec3(0.02, 0.03, 0.08), smoothstep(-0.2, 1.0, uv.y));
-      float nebula = fbm(uv * 1.2 + vec2(0.0, t * 0.03));
-      color += vec3(0.05, 0.08, 0.16) * nebula * 0.16;
+      // ---- Background ----
+      vec3 col = vec3(0.0, 0.0, 0.012);
 
-      float stars = starField(v_uv, 0.9972);
-      stars += starField(v_uv * 1.37 + vec2(0.13, 0.07), 0.9982) * 0.8;
-      color += vec3(0.82, 0.88, 1.0) * stars;
+      // Cold blue nebula streak across the top (diagonal, like the reference)
+      vec2 nebUv1 = uv * 0.65 + vec2(0.4, 0.8) + t * 0.008;
+      vec2 nebUv2 = uv * 1.1  + vec2(-1.5, 0.2) + t * 0.006;
+      float nebA = fbm(nebUv1);
+      float nebB = fbm(nebUv2 + 1.5 * vec2(fbm(nebUv2), fbm(nebUv2 + vec2(3.2, 1.7))));
+      // Bias toward the top half of screen for the galactic wisp
+      float nebBias = smoothstep(-0.2, 0.8, uv.y);
+      col += vec3(0.02, 0.035, 0.14) * nebA * 0.12 * (0.4 + 0.6 * nebBias);
+      col += vec3(0.01, 0.02, 0.10) * nebB * 0.08;
 
-      float ringAccum = 0.0;
-      float streakAccum = 0.0;
-      float glowAccum = 0.0;
+      // Stars — multi-layer with twinkle, halos, diffraction spikes
+      col += starLayers(uv, t) * 0.75;
 
-      for (int i = 0; i < 4; i++) {
-        float fi = float(i);
-        float phase = fi * 1.47;
-        float layer = ringLayer(uv * (1.0 + fi * 0.015), radius, angle, t + fi * 0.12, phase, fi);
-        ringAccum += layer * (0.52 - fi * 0.08);
+      // ---- Disk asymmetry ----
+      // Brightest / thickest at top-left (~120 deg = 2.1 rad)
+      float peakAngle = 2.1;
+      float blueWeight = pow(max(0.0, 0.5 + 0.5 * cos(angle - peakAngle)), 1.6);
+      float angWeight  = 0.28 + 0.72 * blueWeight;
 
-        float angularSpeed = t * (0.22 + fi * 0.03) / (radius + 0.22);
-        float streakNoise = fbm(vec2(angle * 14.0 + angularSpeed + phase * 0.8, radius * 10.0 - t * 0.1));
-        float streaks = pow(smoothstep(0.58, 0.98, streakNoise), 2.2);
-        float streakMask = smoothstep(0.32, 0.56, radius) * (1.0 - smoothstep(0.78, 1.1, radius));
-        streakAccum += streaks * streakMask * (0.42 - fi * 0.05);
+      // ---- Disk radial mask ----
+      // Wide swirling nebular mass, not a thin ring
+      float diskMask = smoothstep(0.24, 0.44, r) * (1.0 - smoothstep(0.68, 1.08, r));
+      diskMask *= angWeight;
 
-        float distToRing = abs(radius - (0.48 + fi * 0.005));
-        glowAccum += 1.0 / (distToRing * distToRing * 30.0 + 2.2);
-      }
+      // ---- Disk texture — heavy domain warp ----
+      // Slow angular swirl, faster near centre
+      float swirlSpeed = t * 0.055 / (r + 0.28);
+      float cs = cos(swirlSpeed); float ss = sin(swirlSpeed);
+      vec2 swirlUv = vec2(cs * uv.x - ss * uv.y, ss * uv.x + cs * uv.y);
 
-      float debris = debrisField(radius, angle, t) + debrisField(radius * 1.08, angle + 0.9, t + 2.0) * 0.6;
-      float outerMist = fbm(vec2(angle * 2.2 - t * 0.04, radius * 3.6 + t * 0.03));
-      outerMist *= smoothstep(0.45, 0.8, radius) * (1.0 - smoothstep(1.0, 1.38, radius));
+      // Cartesian base coord — avoids the atan seam
+      vec2 dc = uv * 1.55 + vec2(t * 0.018, 0.0);
 
-      vec3 ringColor = mix(vec3(0.24, 0.12, 0.44), u_midColor, smoothstep(0.18, 1.0, ringAccum));
-      ringColor = mix(ringColor, u_highColor, smoothstep(0.36, 1.1, streakAccum + ringAccum * 0.42));
-      ringColor = mix(ringColor, u_highlightColor, smoothstep(0.52, 1.3, streakAccum * 0.9 + glowAccum * 0.18));
-      ringColor += vec3(0.95, 0.36, 0.88) * pow(smoothstep(0.58, 1.15, streakAccum), 2.0) * 0.7;
-      ringColor += vec3(0.98, 0.52, 0.2) * pow(smoothstep(0.84, 1.45, debris + streakAccum * 0.28), 3.0) * 0.24;
+      // Two warp layers for chunky painterly blobs
+      vec2 q = vec2(
+        fbm(dc * 3.2 + t * 0.04),
+        fbm(dc * 3.2 + vec2(5.2, 1.3) - t * 0.032)
+      );
+      vec2 wq = vec2(
+        fbm(dc * 2.6 + 3.8 * q + t * 0.028),
+        fbm(dc * 2.6 + 3.8 * q + vec2(1.7, 9.2) - t * 0.022)
+      );
+      float diskTex = fbm(dc * 2.1 + 4.2 * wq);
 
-      color += ringColor * ringAccum * 1.35;
-      color += u_highColor * streakAccum * 0.95;
-      color += vec3(0.64, 0.28, 0.82) * outerMist * 0.42;
+      // Detail layer — finer streaks
+      vec2 dc2 = uv * vec2(2.8, 3.8) + vec2(-t * 0.014, -t * 0.046);
+      float diskDetail = fbm(dc2 * vec2(2.2, 1.4) + 2.0 * q.yx);
 
-      float debrisGlow = debris * (0.6 + glowAccum * 0.12);
-      color += mix(vec3(0.08), vec3(0.55, 0.72, 1.0), smoothstep(0.0, 1.0, debris)) * debrisGlow;
+      float disk = diskTex * 0.68 + diskDetail * 0.32;
+      float diskSoft = smoothstep(0.28, 0.94, disk);
 
-      float coreRadius = 0.255;
-      float coreMask = 1.0 - smoothstep(coreRadius - 0.006, coreRadius + 0.006, radius);
-      float blueRim = exp(-pow((radius - coreRadius) / 0.022, 2.0));
-      float purpleBleed = exp(-pow((radius - coreRadius) / 0.055, 2.0));
+      // ---- Dark asteroid blobs inside the disk ----
+      vec2 blobCoord = uv * vec2(7.0, 9.0) + vec2(t * 0.022, 0.0);
+      vec2 blobCell  = floor(blobCoord);
+      vec2 blobLocal = fract(blobCoord) - 0.5;
+      vec2 blobRnd   = hash2(blobCell);
+      float blobDist = length(blobLocal - (blobRnd - 0.5) * 0.65);
+      float blobs = step(0.84, blobRnd.x) * smoothstep(0.16, 0.03, blobDist);
+      float blobMask = smoothstep(0.3, 0.52, r) * (1.0 - smoothstep(0.62, 0.82, r));
+      blobs *= blobMask * pow(angWeight, 0.7);
 
-      color += vec3(0.2, 0.46, 1.0) * blueRim * 0.42;
-      color += vec3(0.58, 0.18, 0.82) * purpleBleed * 0.26;
-      color = mix(color, vec3(0.005, 0.008, 0.018), coreMask);
+      // ---- Disk colors ----
+      vec3 cDeep   = vec3(0.04, 0.06, 0.28);   // dark navy base
+      vec3 cMid    = vec3(0.06, 0.16, 0.62);   // deep blue mid
+      vec3 cBlue   = vec3(0.12, 0.34, 1.00);   // electric blue
+      vec3 cHot    = vec3(0.42, 0.65, 1.00);   // bright electric blue at peaks
 
-      float centerGlow = 1.0 / (pow(max(abs(radius - 0.43), 0.01), 2.0) * 42.0 + 2.0);
-      color += vec3(0.14, 0.18, 0.34) * centerGlow * 0.22;
+      float db = diskSoft * diskMask;
 
-      color *= u_intensity;
-      color = acesTonemap(color);
-      color = pow(color, vec3(1.0 / 2.2));
+      vec3 diskColor = mix(cDeep, cMid,  smoothstep(0.0, 0.55, db));
+      diskColor = mix(diskColor, cBlue,  smoothstep(0.38, 0.88, db) * blueWeight);
+      diskColor = mix(diskColor, cHot,   smoothstep(0.65, 1.05, db * (0.5 + 0.5 * blueWeight)));
 
-      float grain = hash(gl_FragCoord.xy + fract(u_time) * 431.0) - 0.5;
-      color += grain / 255.0;
+      col += diskColor * db * 1.45;
 
-      gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+      // Outer diffuse haze (wide deep blue glow)
+      float outerNeb = fbm(uv * 0.88 + vec2(0.6, 0.4) + t * 0.015);
+      float outerMask = smoothstep(0.22, 0.58, r) * (1.0 - smoothstep(0.78, 1.35, r));
+      outerMask *= (0.25 + 0.75 * angWeight);
+      col += vec3(0.03, 0.04, 0.18) * outerNeb * outerMask * 0.35;
+      col += vec3(0.04, 0.09, 0.32) * outerNeb * outerMask * 0.25 * blueWeight;
+
+      // Poke dark holes for asteroid blobs
+      col = mix(col, col * 0.04, blobs * diskSoft * 0.85);
+
+      // ---- Photon sphere / Einstein ring ----
+      float photonR = 0.268;
+
+      // Razor-thin primary ring — near-white/silver, mirror-like
+      float ring1 = exp(-pow((r - photonR) / 0.004, 2.0));
+      // Brightness picks up colour from the disk side (angWeight) and stays
+      // near-white on the dark side — like a mirror reflecting the disk
+      vec3 ringColor = mix(vec3(0.72, 0.80, 1.00), vec3(1.00, 0.98, 0.92), blueWeight);
+      float ringBright = 0.65 + 0.55 * angWeight; // stronger where disk is bright
+      col += ringColor * ring1 * ringBright;
+
+      // Secondary lensing arc — slightly wider, dimmer, bluer (bent light from behind)
+      float ring2 = exp(-pow((r - photonR) / 0.010, 2.0));
+      col += vec3(0.25, 0.45, 0.90) * ring2 * 0.30;
+
+      // Innermost faint glow just inside the ring (light trapped at photon sphere)
+      float ring3 = exp(-pow((r - (photonR - 0.012)) / 0.008, 2.0));
+      col += vec3(0.18, 0.32, 0.75) * ring3 * 0.18;
+
+      // ---- Black hole core ----
+      float coreR = 0.258;
+      // Soft purple bleed just outside the event horizon
+      float purpleEdge = exp(-pow(max(0.0, r - coreR) / 0.055, 1.4));
+      col += vec3(0.05, 0.10, 0.45) * purpleEdge * 0.55;
+      // Black mask — soft inner edge so it doesn't look pasted on
+      float coreMask = smoothstep(coreR + 0.008, coreR - 0.004, r);
+      col = mix(col, vec3(0.0, 0.0, 0.008), coreMask);
+
+      // ---- Tonemap + gamma ----
+      col = aces(col * 1.08);
+      col = pow(col, vec3(1.0 / 2.2));
+
+      // Film grain
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
   </script>
 
@@ -232,12 +288,7 @@
     const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
 
     const params = {
-      speed: 0.3,
-      intensity: 1.16,
-      bgColor: [0.015, 0.02, 0.04],
-      midColor: [0.26, 0.18, 0.62],
-      highColor: [0.22, 0.84, 0.98],
-      highlightColor: [0.9, 0.34, 0.88]
+      speed: 0.22
     };
 
     function createShader(type, source) {
@@ -258,25 +309,20 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
       -1, -1, 1, -1, -1, 1,
-      -1, 1, 1, -1, 1, 1
+      -1,  1, 1, -1,  1, 1
     ]), gl.STATIC_DRAW);
 
-    const aPosition = gl.getAttribLocation(program, "a_position");
+    const aPosition  = gl.getAttribLocation(program, "a_position");
     const uResolution = gl.getUniformLocation(program, "u_resolution");
-    const uTime = gl.getUniformLocation(program, "u_time");
-    const uSpeed = gl.getUniformLocation(program, "u_speed");
-    const uIntensity = gl.getUniformLocation(program, "u_intensity");
-    const uBgColor = gl.getUniformLocation(program, "u_bgColor");
-    const uMidColor = gl.getUniformLocation(program, "u_midColor");
-    const uHighColor = gl.getUniformLocation(program, "u_highColor");
-    const uHighlightColor = gl.getUniformLocation(program, "u_highlightColor");
+    const uTime      = gl.getUniformLocation(program, "u_time");
+    const uSpeed     = gl.getUniformLocation(program, "u_speed");
 
     function resize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const width = Math.floor(innerWidth * dpr);
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth * dpr);
       const height = Math.floor(innerHeight * dpr);
       if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
+        canvas.width  = width;
         canvas.height = height;
         gl.viewport(0, 0, width, height);
       }
@@ -291,24 +337,19 @@
       gl.uniform2f(uResolution, canvas.width, canvas.height);
       gl.uniform1f(uTime, now * 0.001);
       gl.uniform1f(uSpeed, params.speed);
-      gl.uniform1f(uIntensity, params.intensity);
-      gl.uniform3fv(uBgColor, params.bgColor);
-      gl.uniform3fv(uMidColor, params.midColor);
-      gl.uniform3fv(uHighColor, params.highColor);
-      gl.uniform3fv(uHighlightColor, params.highlightColor);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       requestAnimationFrame(render);
     }
 
-    const backLink = document.querySelector(".back-link");
-    const viewCodeLink = document.querySelector(".view-code-link");
-    const codeModal = document.querySelector(".code-modal");
-    const codeElement = document.querySelector(".code-block code");
+    const backLink      = document.querySelector(".back-link");
+    const viewCodeLink  = document.querySelector(".view-code-link");
+    const codeModal     = document.querySelector(".code-modal");
+    const codeElement   = document.querySelector(".code-block code");
     const copyCodeButton = document.querySelector(".copy-code-button");
     const closeCodeButton = document.querySelector(".close-code-button");
-    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
-    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
+    function escapeHtml(v) { return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function getSource()   { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
+    function openCodeModal()  { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
     function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
     viewCodeLink.addEventListener("click", openCodeModal);
     closeCodeButton.addEventListener("click", closeCodeModal);
@@ -322,7 +363,7 @@
 
     window.shaderControls = params;
     if (window.self !== window.top) {
-      backLink.style.display = "none";
+      backLink.style.display    = "none";
       viewCodeLink.style.display = "none";
     } else {
       backLink.textContent = "← Back to Playground";

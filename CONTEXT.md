@@ -81,7 +81,7 @@ Shaders/
 | Shader | Slug | Description |
 |--------|------|-------------|
 | Star Field | `starfield` | Twinkling stars, Milky Way, diffraction spikes |
-| Event Horizon | `event-horizon` | Gravitational lensing effect (**not in shaders.json**) |
+| Event Horizon | `event-horizon` | Black hole with accretion rings, debris field, photon rim (**not yet registered in shaders.json or index.html**) |
 
 ---
 
