@@ -2,7 +2,7 @@
 
 ## Overview
 
-Atmospheric Hero Shaders is a curated collection of fullscreen WebGL/GLSL shader studies designed as cinematic hero-section backgrounds for websites. Each shader is a single self-contained HTML file with embedded GLSL code, zero external dependencies beyond WebGL, and no build step required.
+Atmospheric Shaders is a curated collection of fullscreen WebGL/GLSL shader studies spanning smoke, liquid, silk, aurora, and cosmic phenomena. Each shader is a single self-contained HTML file with embedded GLSL code, zero external dependencies beyond WebGL, and no build step required.
 
 **Live site:** shaders.vimal.works (GitHub Pages with custom domain)
 **Repository:** github.com/v1mal/atmospheric-hero-shaders

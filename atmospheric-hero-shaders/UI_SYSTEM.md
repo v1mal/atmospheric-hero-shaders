@@ -1,4 +1,4 @@
-# Atmospheric Hero Shaders UI System
+# Atmospheric Shaders UI System
 
 This document describes the shared UI system for the shader playground and fullscreen shader pages in this root folder. The goal is to keep the playground visually consistent, lightweight, and easy to extend without reintroducing page-local chrome styles.
 

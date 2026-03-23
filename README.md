@@ -1,8 +1,8 @@
-# Atmospheric Hero Shaders
+# Atmospheric Shaders
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-A small playground of lightweight GLSL/WebGL hero-section shaders for the web.
+Fullscreen GLSL experiments exploring the boundary between darkness and luminance. Smoke, liquid, silk, aurora, and deep space, each built as a single self-contained HTML file.
 
 The focus is on:
 - minimal, atmospheric visuals
@@ -15,8 +15,10 @@ The focus is on:
 The playground currently includes:
 - smoke and veil studies
 - premium-tinted atmospheric variants
-- dark liquid / caustic studies
-- a softer glass-liquid experiment
+- dark liquid and caustic studies
+- silk flow and glass-liquid experiments
+- celestial and cosmic studies (aurora, star field, black hole)
+- void, vortex, and orb studies
 
 All shader pages live in `atmospheric-hero-shaders/`.
 

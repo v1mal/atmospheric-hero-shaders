@@ -1,6 +1,6 @@
 # Cinematic Shader Guidelines
 
-For future hero-section shaders in this repository, follow these proven techniques to ensure a premium, cinematic, and cohesive aesthetic across the project.
+For future shaders in this repository, follow these proven techniques to ensure a premium, cinematic, and cohesive aesthetic across the project.
 
 ## 1. ACES Tonemapping
 Always pass HDR color accumulations through an ACES tonemapper before rendering to `gl_FragColor`. This safely compresses intense, blown-out brights (like lasers, suns, or caustic reflections) into smooth, filmic highlights without harsh digital clipping.
