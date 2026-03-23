@@ -40,7 +40,13 @@ Shaders/
 │   ├── previews/                       # Auto-generated WebP thumbnails (1600x1200)
 │   └── *.html                          # Individual fullscreen shader files
 │
-└── gradient-shaders/                   # Collection: animated gradient studies
+├── gradient-shaders/                   # Collection: animated gradient studies
+│   ├── index.html
+│   ├── preview.html
+│   ├── shaders.json
+│   └── previews/
+│
+└── fractal-universe/                   # Collection: fractal and self-similar pattern studies
     ├── index.html                      # Gallery page
     ├── preview.html                    # Lightweight iframe renderer for previews
     ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
@@ -97,6 +103,10 @@ Fullscreen GLSL experiments exploring the boundary between darkness and luminanc
 |--------|------|-------------|
 | Star Field | `starfield` | Twinkling stars, Milky Way, diffraction spikes |
 | Event Horizon | `event-horizon` | Black hole with accretion rings, debris field, photon rim |
+
+### Fractal Universe (0 shaders)
+
+Self-similar patterns at every scale — seashells, coastlines, galaxies, and the infinite recursion that underlies all of nature.
 
 ### Gradients (0 shaders)
 

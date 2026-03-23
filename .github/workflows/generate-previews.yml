@@ -8,6 +8,8 @@ on:
       - "atmospheric-hero-shaders/shaders.json"
       - "gradient-shaders/*.html"
       - "gradient-shaders/shaders.json"
+      - "fractal-universe/*.html"
+      - "fractal-universe/shaders.json"
       - "scripts/generate-previews.js"
   workflow_dispatch:
     inputs:
@@ -34,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        collection: [atmospheric-hero-shaders, gradient-shaders]
+        collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe]
       fail-fast: false
 
     steps:
