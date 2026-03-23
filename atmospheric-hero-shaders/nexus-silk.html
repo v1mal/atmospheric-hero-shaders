@@ -303,9 +303,29 @@
     window.addEventListener('resize', resize);
     resize();
     requestAnimationFrame(render);
-  </script>
 
-  <!-- Shared UI Modals -->
-  <script src="ui.js"></script>
+    // Code modal handlers
+    const backLink = document.querySelector(".back-link");
+    const viewCodeLink = document.querySelector(".view-code-link");
+    const codeModal = document.querySelector(".code-modal");
+    const codeElement = document.querySelector(".code-block code");
+    const copyCodeButton = document.querySelector(".copy-code-button");
+    const closeCodeButton = document.querySelector(".close-code-button");
+    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
+    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
+    function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
+    viewCodeLink.addEventListener("click", openCodeModal);
+    closeCodeButton.addEventListener("click", closeCodeModal);
+    codeModal.addEventListener("click", function(event) { if (event.target === codeModal) closeCodeModal(); });
+    window.addEventListener("keydown", function(event) { if (event.key === "Escape") closeCodeModal(); });
+    copyCodeButton.addEventListener("click", async function() { await navigator.clipboard.writeText(getSource()); copyCodeButton.textContent = "Copied"; window.setTimeout(function() { copyCodeButton.textContent = "Copy Code"; }, 1200); });
+    if (window.self !== window.top) {
+      backLink.style.display = "none";
+      viewCodeLink.style.display = "none";
+    } else {
+      backLink.textContent = "\u2190 Back to Playground";
+    }
+  </script>
 </body>
 </html>

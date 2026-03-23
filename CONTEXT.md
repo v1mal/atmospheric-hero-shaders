@@ -40,7 +40,7 @@ Shaders/
 
 ---
 
-## Shader Collection (20 shaders)
+## Shader Collection (21 shaders, 20 registered)
 
 ### Smoke and Fog
 | Shader | Slug | Description |
@@ -63,7 +63,7 @@ Shaders/
 | Gilded Current | `gilded-current` | Gold caustic currents |
 | Midnight Pool | `midnight-pool` | Deep liquid reflections |
 | Glass Veil | `glass-veil` | Soft glass-liquid experiment |
-| Liquid Metal | `liquid-metal` | Metallic liquid surface |
+| Ocean Labs | `ocean-labs` | Deep dark ocean surface with warped fluid dynamics |
 
 ### Geometric and Flow
 | Shader | Slug | Description |
@@ -81,7 +81,7 @@ Shaders/
 | Shader | Slug | Description |
 |--------|------|-------------|
 | Star Field | `starfield` | Twinkling stars, Milky Way, diffraction spikes |
-| Event Horizon | `event-horizon` | Gravitational lensing effect |
+| Event Horizon | `event-horizon` | Gravitational lensing effect (**not in shaders.json**) |
 
 ---
 
