@@ -154,6 +154,11 @@
     enhanceIconButton(".back-link", "arrow-left", "Back to Playground");
     enhanceIconButton(".view-code-link", "code-2", "View Code");
 
+    var homeLink = document.querySelector(".collection-nav__home");
+    if (homeLink) {
+      homeLink.innerHTML = '<span class="ui-icon" data-lucide="house"></span><span>All Collections</span>';
+    }
+
     injectModalShell();
     injectModalFooter();
     initModalBehavior();
