@@ -10,7 +10,7 @@ Current collections:
 - `atmospheric-hero-shaders/` — smoke, liquid, silk, aurora, deep space (21 shaders)
 - `gradient-shaders/` — animated gradient studies (2 shaders)
 - `fractal-universe/` — fractal and self-similar pattern studies (4 shaders)
-- `geometric-abstraction/` — abstract art-inspired geometric studies (2 shaders)
+- `geometric-abstraction/` — abstract art-inspired geometric studies (3 shaders)
 
 ---
 

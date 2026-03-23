@@ -1,4 +1,5 @@
 [
-  { "slug": "mondrian",     "title": "Mondrian",     "previewTime": 4.0 },
-  { "slug": "metaesquema",  "title": "Metaesquema",  "previewTime": 3.0 }
+  { "slug": "mondrian",          "title": "Mondrian",          "previewTime": 4.0 },
+  { "slug": "metaesquema",       "title": "Metaesquema",       "previewTime": 3.0 },
+  { "slug": "perceptual-shift",  "title": "Perceptual Shift",  "previewTime": 1.0 }
 ]
