@@ -73,9 +73,19 @@ async function captureShader(browser, shader, { BASE_URL, PREVIEW_DIR, collectio
   });
 
   try {
-    const url = `${BASE_URL}/preview.html?shader=${encodeURIComponent(shader.slug)}&capture=1&t=${encodeURIComponent(shader.previewTime || 4.0)}`;
-    await page.goto(url, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => window.__shaderPreviewReady === true, undefined, { timeout: 15000 });
+    if (shader.direct) {
+      // Multi-pass shaders (e.g. ping-pong simulations) cannot be rendered
+      // through preview.html. Load the shader HTML directly and wait for
+      // the simulation to reach the desired time before capturing.
+      const url = `${BASE_URL}/${encodeURIComponent(shader.slug)}.html`;
+      await page.goto(url, { waitUntil: "networkidle" });
+      const waitMs = (shader.previewTime || 4.0) * 1000;
+      await page.waitForTimeout(waitMs);
+    } else {
+      const url = `${BASE_URL}/preview.html?shader=${encodeURIComponent(shader.slug)}&capture=1&t=${encodeURIComponent(shader.previewTime || 4.0)}`;
+      await page.goto(url, { waitUntil: "networkidle" });
+      await page.waitForFunction(() => window.__shaderPreviewReady === true, undefined, { timeout: 15000 });
+    }
     const image = await page.screenshot({ type: "png" });
     const outputPath = path.join(PREVIEW_DIR, `${shader.slug}.webp`);
     await writeWebp(image, outputPath);

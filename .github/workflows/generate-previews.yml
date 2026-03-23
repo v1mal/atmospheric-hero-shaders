@@ -12,6 +12,8 @@ on:
       - "fractal-universe/shaders.json"
       - "geometric-abstraction/*.html"
       - "geometric-abstraction/shaders.json"
+      - "organic-patterns/*.html"
+      - "organic-patterns/shaders.json"
       - "scripts/generate-previews.js"
   workflow_dispatch:
     inputs:
@@ -38,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe, geometric-abstraction]
+        collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe, geometric-abstraction, organic-patterns]
       fail-fast: false
 
     steps:

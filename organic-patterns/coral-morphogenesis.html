@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Coral Morphogenesis</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a1a;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <!-- Shared vertex shader -->
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <!-- Gray-Scott simulation step -->
+  <script id="sim-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+    uniform sampler2D u_state;
+    uniform vec2 u_texel;  // 1.0 / simSize
+    uniform float u_f;     // feed rate
+    uniform float u_k;     // kill rate
+
+    const float Da = 1.0;     // diffusion rate A
+    const float Db = 0.5;     // diffusion rate B
+    const float dt = 1.0;     // time step
+
+    void main() {
+      // Sample current state: R = chemical A, G = chemical B
+      vec2 state = texture2D(u_state, v_uv).rg;
+      float a = state.r;
+      float b = state.g;
+
+      // 3x3 weighted Laplacian
+      vec2 dx = vec2(u_texel.x, 0.0);
+      vec2 dy = vec2(0.0, u_texel.y);
+
+      vec2 sN  = texture2D(u_state, v_uv + dy).rg;
+      vec2 sS  = texture2D(u_state, v_uv - dy).rg;
+      vec2 sE  = texture2D(u_state, v_uv + dx).rg;
+      vec2 sW  = texture2D(u_state, v_uv - dx).rg;
+      vec2 sNE = texture2D(u_state, v_uv + dy + dx).rg;
+      vec2 sNW = texture2D(u_state, v_uv + dy - dx).rg;
+      vec2 sSE = texture2D(u_state, v_uv - dy + dx).rg;
+      vec2 sSW = texture2D(u_state, v_uv - dy - dx).rg;
+
+      vec2 laplacian = 0.20 * (sN + sS + sE + sW)
+                     + 0.05 * (sNE + sNW + sSE + sSW)
+                     - state;
+
+      // Gray-Scott reaction-diffusion equations
+      float abb = a * b * b;
+      float aNew = a + (Da * laplacian.r - abb + u_f * (1.0 - a)) * dt;
+      float bNew = b + (Db * laplacian.g + abb - (u_k + u_f) * b) * dt;
+
+      gl_FragColor = vec4(clamp(aNew, 0.0, 1.0), clamp(bNew, 0.0, 1.0), 0.0, 1.0);
+    }
+  </script>
+
+  <!-- Display shader: structural coloration (thin-film interference) -->
+  <script id="display-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+    uniform sampler2D u_state;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    // ACES filmic tonemapping
+    vec3 acesInput(vec3 v) {
+      mat3 m = mat3(
+        0.59719, 0.07600, 0.02840,
+        0.35458, 0.90834, 0.13383,
+        0.04823, 0.01566, 0.83777
+      );
+      return v * m;
+    }
+    vec3 acesOutput(vec3 v) {
+      mat3 m = mat3(
+         1.60475, -0.10208, -0.00327,
+        -0.53108,  1.10813, -0.07276,
+        -0.07367, -0.00605,  1.07602
+      );
+      return v * m;
+    }
+    vec3 rrtOdt(vec3 v) {
+      vec3 a = v * (v + 0.0245786) - 0.000090537;
+      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+      return a / b;
+    }
+    vec3 aces(vec3 col) {
+      col = acesInput(col);
+      col = rrtOdt(col);
+      col = acesOutput(col);
+      return clamp(col, 0.0, 1.0);
+    }
+
+    // Attempt thin-film interference: optical path difference -> spectral color
+    // Maps a "thickness" value to RGB via wavelength interference
+    vec3 thinFilm(float thickness) {
+      // Pearlescent interference: each channel peaks at a different thickness
+      vec3 col;
+      col.r = 0.5 + 0.5 * cos(6.2832 * (thickness * 1.0 - 0.00));
+      col.g = 0.5 + 0.5 * cos(6.2832 * (thickness * 1.0 - 0.33));
+      col.b = 0.5 + 0.5 * cos(6.2832 * (thickness * 1.0 - 0.67));
+      return mix(col, col * col, 0.4); // partial square: saturation without harsh bands
+    }
+
+    void main() {
+      // 1:1 square canvas centered in viewport
+      vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
+      float side = min(u_resolution.x, u_resolution.y) * 0.5 / min(u_resolution.x, u_resolution.y) * 0.92;
+
+      if (abs(p.x) > side || abs(p.y) > side) {
+        gl_FragColor = vec4(0.102, 0.102, 0.102, 1.0); // #1a1a1a
+        return;
+      }
+
+      // Map square canvas coordinates to texture UV
+      vec2 uv = (p + side) / (2.0 * side);
+
+      // Sample simulation state with subtle blur (5-tap cross)
+      float texel = 1.0 / 512.0;
+      float bC = texture2D(u_state, uv).g;
+      float bR = texture2D(u_state, uv + vec2(texel, 0.0)).g;
+      float bL = texture2D(u_state, uv - vec2(texel, 0.0)).g;
+      float bU = texture2D(u_state, uv + vec2(0.0, texel)).g;
+      float bD = texture2D(u_state, uv - vec2(0.0, texel)).g;
+      float b = (bC * 4.0 + bR + bL + bU + bD) / 8.0;
+
+      // Surface gradient (fake normals for iridescence angle)
+      vec2 grad = vec2(bR - bL, bU - bD) * 0.5;
+      float gradMag = length(grad);
+
+      // Thin-film interference coloring
+      // "Thickness" = B concentration + gradient angle (creates angle-dependent iridescence)
+      float angle = atan(grad.y, grad.x) * 0.15; // gradient direction shifts hue
+      float thickness = b * 2.5 + angle + gradMag * 5.0;
+      vec3 iridescence = thinFilm(thickness);
+
+      // Peacock palette bias: push toward blues/greens/golds
+      // Boost blue-green channel, warm up highlights
+      vec3 peacock = iridescence;
+      peacock.b = peacock.b * 1.1 + 0.05;  // slight blue boost
+      peacock.g = peacock.g * 1.05;          // slight green boost
+
+      // Dark substrate where B is low (the "feather barbule" background)
+      vec3 substrate = vec3(0.0, 0.0, 0.0);
+      float mask = smoothstep(0.02, 0.20, b);
+
+      // Combine: dark substrate with iridescent pattern on top
+      vec3 col = mix(substrate, peacock, mask);
+
+      // Brightness modulation from surface lighting
+      vec3 normal = normalize(vec3(grad * 15.0, 1.0));
+      vec3 light = normalize(vec3(0.3, 0.5, 1.0));
+      float diffuse = max(dot(normal, light), 0.0);
+      float spec = pow(max(dot(reflect(-light, normal), vec3(0.0, 0.0, 1.0)), 0.0), 16.0);
+      col = col * (0.6 + 0.4 * diffuse) + vec3(0.15, 0.20, 0.25) * spec * mask;
+
+      // Chrome desaturation: blend toward luminance to soften neon into metallic
+      float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(vec3(lum), col, 0.75);
+
+      // Inner padding: solid black border inside artwork
+      vec2 vUv = (p / side) * 0.5 + 0.5;  // 0..1 within the square
+      float pad = 0.04;
+      if (vUv.x < pad || vUv.x > 1.0 - pad || vUv.y < pad || vUv.y > 1.0 - pad) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
+      }
+
+      // ACES tonemapping: filmic highlight rolloff
+      col = aces(col * 1.2);
+
+      // Film grain (anti-banding)
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(col, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    // Required extensions for float textures
+    const extFloat = gl.getExtension("OES_texture_float");
+    const extFloatLinear = gl.getExtension("OES_texture_float_linear");
+    if (!extFloat) console.warn("OES_texture_float not supported");
+
+    const seed = Math.random() * 1000.0;
+    const simSize = 512;
+
+    // Gray-Scott parameter presets: curated for connected, organic patterns
+    const presets = [
+      { f: 0.037, k: 0.060 },  // classic labyrinthine coral
+      { f: 0.039, k: 0.058 },  // thick labyrinth
+      { f: 0.040, k: 0.060 },  // worms / tubes
+      { f: 0.042, k: 0.059 },  // dense worm network
+      { f: 0.036, k: 0.061 },  // branching coral
+      { f: 0.038, k: 0.061 },  // narrow labyrinth
+    ];
+    const preset = presets[Math.floor(Math.random() * presets.length)];
+    // Mild jitter: enough for variation, stays in viable zone
+    const gsF = preset.f + (Math.random() - 0.5) * 0.001;
+    const gsK = preset.k + (Math.random() - 0.5) * 0.001;
+
+    const params = {
+      speed: 0.15
+    };
+
+    // --- Shader compilation ---
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    function createProgram(vsId, fsId) {
+      const prog = gl.createProgram();
+      gl.attachShader(prog, createShader(gl.VERTEX_SHADER, document.getElementById(vsId).textContent.trim()));
+      gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, document.getElementById(fsId).textContent.trim()));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+      return prog;
+    }
+
+    const simProgram     = createProgram("vertex-shader", "sim-shader");
+    const displayProgram = createProgram("vertex-shader", "display-shader");
+
+    // --- Fullscreen quad ---
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    // --- Uniform locations ---
+    const sim = {
+      aPos:   gl.getAttribLocation(simProgram, "a_position"),
+      uState: gl.getUniformLocation(simProgram, "u_state"),
+      uTexel: gl.getUniformLocation(simProgram, "u_texel"),
+      uF:     gl.getUniformLocation(simProgram, "u_f"),
+      uK:     gl.getUniformLocation(simProgram, "u_k")
+    };
+
+    const disp = {
+      aPos:       gl.getAttribLocation(displayProgram, "a_position"),
+      uState:     gl.getUniformLocation(displayProgram, "u_state"),
+      uResolution: gl.getUniformLocation(displayProgram, "u_resolution"),
+      uTime:      gl.getUniformLocation(displayProgram, "u_time")
+    };
+
+    // --- Framebuffer objects (ping-pong) ---
+    function createFBO(size) {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { texture: tex, framebuffer: fb };
+    }
+
+    let fboA = createFBO(simSize);
+    let fboB = createFBO(simSize);
+
+    // --- Initialize simulation: A=1 everywhere, B=1 in seed spots ---
+    function initState() {
+      const data = new Float32Array(simSize * simSize * 4);
+      for (let i = 0; i < simSize * simSize; i++) {
+        data[i * 4]     = 1.0; // A = 1
+        data[i * 4 + 1] = 0.0; // B = 0
+        data[i * 4 + 2] = 0.0;
+        data[i * 4 + 3] = 1.0;
+      }
+
+      // Seed chemical B with varied patterns
+      const seedType = Math.floor(Math.random() * 4);
+      const numSeeds = seedType === 3 ? 1 : 6 + Math.floor(Math.random() * 20);
+
+      function seedPixel(px, py) {
+        px = ((px % simSize) + simSize) % simSize;
+        py = ((py % simSize) + simSize) % simSize;
+        const idx = (py * simSize + px) * 4;
+        data[idx]     = 0.5;
+        data[idx + 1] = 0.25;
+      }
+
+      for (let s = 0; s < numSeeds; s++) {
+        const cx = Math.floor(Math.random() * simSize);
+        const cy = Math.floor(Math.random() * simSize);
+
+        if (seedType === 0) {
+          // Circles: varied sizes
+          const radius = 2 + Math.floor(Math.random() * 12);
+          for (let dy = -radius; dy <= radius; dy++)
+            for (let dx = -radius; dx <= radius; dx++)
+              if (dx * dx + dy * dy <= radius * radius) seedPixel(cx + dx, cy + dy);
+
+        } else if (seedType === 1) {
+          // Short lines at random angles
+          const len = 8 + Math.floor(Math.random() * 30);
+          const ang = Math.random() * 6.2832;
+          for (let t = 0; t < len; t++) {
+            const lx = Math.round(cx + Math.cos(ang) * t);
+            const ly = Math.round(cy + Math.sin(ang) * t);
+            for (let w = -1; w <= 1; w++) seedPixel(lx + w, ly + w);
+          }
+
+        } else if (seedType === 2) {
+          // Small rings
+          const r = 5 + Math.floor(Math.random() * 15);
+          for (let a = 0; a < 360; a++) {
+            const rad = a * 0.01745;
+            seedPixel(Math.round(cx + Math.cos(rad) * r), Math.round(cy + Math.sin(rad) * r));
+            seedPixel(Math.round(cx + Math.cos(rad) * (r - 1)), Math.round(cy + Math.sin(rad) * (r - 1)));
+          }
+
+        } else {
+          // Single central cluster
+          const radius = 15 + Math.floor(Math.random() * 20);
+          const ccx = Math.floor(simSize / 2);
+          const ccy = Math.floor(simSize / 2);
+          for (let dy = -radius; dy <= radius; dy++)
+            for (let dx = -radius; dx <= radius; dx++)
+              if (dx * dx + dy * dy <= radius * radius) seedPixel(ccx + dx, ccy + dy);
+        }
+      }
+
+      gl.bindTexture(gl.TEXTURE_2D, fboA.texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, simSize, simSize, 0, gl.RGBA, gl.FLOAT, data);
+    }
+
+    function hash(n) {
+      return ((Math.sin(n * 127.1) * 43758.5453) % 1 + 1) % 1;
+    }
+
+    initState();
+
+    // --- Render ---
+    function drawQuad(program, aPos) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPos);
+      gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+      }
+    }
+
+    function render(now) {
+      // Simulation steps per frame (speed-dependent)
+      const steps = Math.max(2, Math.round(params.speed * 50));
+
+      for (let i = 0; i < steps; i++) {
+        gl.useProgram(simProgram);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fboB.framebuffer);
+        gl.viewport(0, 0, simSize, simSize);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, fboA.texture);
+        gl.uniform1i(sim.uState, 0);
+        gl.uniform2f(sim.uTexel, 1.0 / simSize, 1.0 / simSize);
+        gl.uniform1f(sim.uF, gsF);
+        gl.uniform1f(sim.uK, gsK);
+        drawQuad(simProgram, sim.aPos);
+        // Swap
+        const tmp = fboA; fboA = fboB; fboB = tmp;
+      }
+
+      // Display pass
+      resize();
+      gl.useProgram(displayProgram);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, fboA.texture);
+      gl.uniform1i(disp.uState, 0);
+      gl.uniform2f(disp.uResolution, canvas.width, canvas.height);
+      gl.uniform1f(disp.uTime, now * 0.001);
+      drawQuad(displayProgram, disp.aPos);
+
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

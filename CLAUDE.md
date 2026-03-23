@@ -11,6 +11,7 @@ Current collections:
 - `gradient-shaders/` — animated gradient studies (2 shaders)
 - `fractal-universe/` — fractal and self-similar pattern studies (4 shaders)
 - `geometric-abstraction/` — abstract art-inspired geometric studies (4 shaders)
+- `organic-patterns/` — reaction-diffusion and biological growth studies (1 shader)
 
 ---
 

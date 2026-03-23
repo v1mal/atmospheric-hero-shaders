@@ -51,7 +51,13 @@ Shaders/
 │   ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
 │   └── previews/                       # Auto-generated WebP thumbnails (1600x1200)
 │
-└── geometric-abstraction/             # Collection: abstract art-inspired geometric studies
+├── geometric-abstraction/             # Collection: abstract art-inspired geometric studies
+│   ├── index.html                      # Gallery page
+│   ├── preview.html                    # Lightweight iframe renderer for previews
+│   ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
+│   └── previews/                       # Auto-generated WebP thumbnails (1600x1200)
+│
+└── organic-patterns/                  # Collection: reaction-diffusion and biological growth
     ├── index.html                      # Gallery page
     ├── preview.html                    # Lightweight iframe renderer for previews
     ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
@@ -123,6 +129,14 @@ Self-similar patterns at every scale — seashells, coastlines, galaxies, and th
 ### Gradients (0 shaders)
 
 Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.
+
+### Organic Patterns (1 shader)
+
+Reaction-diffusion, Turing patterns, and biological growth processes rendered as real-time GLSL shaders.
+
+| Shader | Slug | Description |
+|--------|------|-------------|
+| Coral Morphogenesis | `coral-morphogenesis` | Gray-Scott reaction-diffusion simulation with thin-film interference coloration and iridescent surface lighting |
 
 ### Geometric Abstraction (4 shaders)
 
@@ -234,7 +248,7 @@ The `.collection-nav` styles live in `shared/ui.css`. When adding a new collecti
 
 ### CI/CD (GitHub Actions)
 - **Trigger**: Push to `main` when shader HTML files or `shaders.json` change in any collection folder
-- **Matrix**: One job per collection (`atmospheric-hero-shaders`, `gradient-shaders`). Each job only runs if files in its collection changed.
+- **Matrix**: One job per collection (`atmospheric-hero-shaders`, `gradient-shaders`, `fractal-universe`, `geometric-abstraction`, `organic-patterns`). Each job only runs if files in its collection changed.
 - **Manual trigger**: `workflow_dispatch` with `collection`, `shader`, and `force` inputs
 - **Bot commits**: `github-actions[bot]` auto-commits generated previews back to `main`, labelled `Generate shader previews [{collection}]`
 
