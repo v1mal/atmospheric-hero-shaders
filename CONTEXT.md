@@ -124,7 +124,7 @@ Self-similar patterns at every scale — seashells, coastlines, galaxies, and th
 
 Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.
 
-### Geometric Abstraction (3 shaders)
+### Geometric Abstraction (4 shaders)
 
 Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art (Mondrian, Malevich, Kandinsky), rendered as real-time GLSL shaders.
 
@@ -133,6 +133,7 @@ Hard edges, primary colors, and structured composition inspired by the pioneers 
 | Mondrian | `mondrian` | Asymmetric black grid with primary-colored rectangles, slowly drifting lines and migrating colors |
 | Metaesquema | `metaesquema` | Grid of monochromatic rectangles with per-cell rotation, color cycling through Oiticica's palette |
 | Perceptual Shift | `perceptual-shift` | Warped checkerboard inspired by Bridget Riley's Movement in Squares, with chromatic fringing |
+| Homage to the Square | `homage-to-the-square` | Four nested squares in Albers' proportional system with slow palette crossfade |
 
 ---
 

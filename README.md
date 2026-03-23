@@ -27,12 +27,13 @@ Self-similar structures found across nature, mathematics, and perception.
 - Julia Set — connected Julia set with cyclic escape-time coloring and slow c orbit
 - Plasma Threads — three logarithmic spiral attractors as glowing neon fibers
 
-### Geometric Abstraction — 3 shaders
+### Geometric Abstraction — 4 shaders
 Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art.
 
 - Mondrian — asymmetric grid of black lines and primary-colored rectangles, randomized on every refresh
 - Metaesquema — grid of monochromatic rectangles with mirrored rotation, inspired by Helio Oiticica's gouache drawings
 - Perceptual Shift — warped checkerboard inspired by Bridget Riley's Movement in Squares, with subtle chromatic fringing
+- Homage to the Square — four nested squares in Josef Albers' proportional system with slow palette crossfade
 
 ### Gradients — 2 shaders
 Animated WebGL gradient studies exploring color, flow, and transition.
@@ -74,7 +75,7 @@ Shaders/
 │   ├── shaders.json
 │   ├── previews/
 │   └── *.html
-├── geometric-abstraction/          # 3 shaders
+├── geometric-abstraction/          # 4 shaders
 │   ├── index.html
 │   ├── preview.html
 │   ├── shaders.json
