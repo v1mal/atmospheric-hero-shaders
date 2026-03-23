@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Metaesquema</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    void main() {
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    #extension GL_OES_standard_derivatives : enable
+    precision highp float;
+
+    uniform vec2  u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_seed;
+
+    const vec3 BG = vec3(0.95, 0.94, 0.90);    // warm paper tone
+    const float GAP = 0.005;
+    const int COLS = 5;
+    const int ROWS = 6;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    // Two-octave paper grain: fine fiber + coarser pulp texture
+    float paperGrain(vec2 p) {
+      float fine = hash(floor(p * 800.0)) * 2.0 - 1.0;   // fiber detail
+      float coarse = hash(floor(p * 200.0)) * 2.0 - 1.0;  // pulp clumps
+      return fine * 0.6 + coarse * 0.4;
+    }
+
+    float sdBox(vec2 p, vec2 b) {
+      vec2 d = abs(p) - b;
+      return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+    }
+
+    mat2 rot(float a) {
+      float c = cos(a), s = sin(a);
+      return mat2(c, -s, s, c);
+    }
+
+    // --- Non-uniform row boundaries (shared across all columns) ---
+    // Returns the Y position of the boundary AFTER row index r.
+    // Row 0 starts at 0, row ROWS-1 ends at spanY.
+    float rowBound(int r, float spanY) {
+      // Compute cumulative gap weights up to row r
+      float total = 0.0;
+      float cumul = 0.0;
+      for (int i = 0; i < ROWS; i++) {
+        float g = 0.5 + 1.5 * hash(vec2(u_seed + 50.0, float(i) + 0.5));
+        total += g;
+        if (i <= r) cumul += g;
+      }
+      return cumul / total * spanY;
+    }
+
+    // --- Non-uniform column boundaries (different per row) ---
+    // Returns the X position of the boundary AFTER column index c in row r.
+    float colBound(int c, int r, float spanX) {
+      float rowSeed = u_seed + float(r) * 137.0;
+      float total = 0.0;
+      float cumul = 0.0;
+      for (int i = 0; i < COLS; i++) {
+        float g = 0.2 + 1.8 * hash(vec2(rowSeed, float(i) + 0.5));
+        total += g;
+        if (i <= c) cumul += g;
+      }
+      return cumul / total * spanX;
+    }
+
+    // Evaluate the SDF for a rectangle at grid position (col, row).
+    float cellSDF(vec2 gp, int col, int row, float spanX, float spanY, float t) {
+      // Cell boundaries
+      float x0 = (col > 0)    ? colBound(col - 1, row, spanX) : 0.0;
+      float x1 = (col < COLS) ? colBound(col, row, spanX)     : spanX;
+      float y0 = (row > 0)    ? rowBound(row - 1, spanY)      : 0.0;
+      float y1 = (row < ROWS) ? rowBound(row, spanY)          : spanY;
+
+      // Cell center and half-size
+      vec2 center = vec2((x0 + x1) * 0.5, (y0 + y1) * 0.5);
+      vec2 halfCell = vec2((x1 - x0) * 0.5, (y1 - y0) * 0.5);
+      vec2 lp = gp - center;
+
+      // Mirrored rotation
+      float mx = (float(col) + 0.5) / float(COLS) - 0.5;
+      float my = (float(row) + 0.5) / float(ROWS) - 0.5;
+      float h1 = hash(vec2(float(col) + u_seed, float(row) + u_seed));
+      float h2 = hash(vec2(float(col) + u_seed + 50.0, float(row)));
+      float angle = -mx * 0.09 + (h1 - 0.5) * 0.04 + my * 0.02;
+      angle += 0.02 * sin(t * 0.3 + h2 * 6.283);
+      lp = rot(angle) * lp;
+
+      // Solve for rectangle size so rotated bounding box fits in (halfCell - GAP).
+      // System: w*ca + h*sa = gx, w*sa + h*ca = gy => Cramer's rule.
+      float ca = cos(abs(angle));
+      float sa = sin(abs(angle));
+      float denom = ca * ca - sa * sa;       // cos(2a), always > 0 for |a| < 45 deg
+      vec2 g = halfCell - GAP;
+      vec2 bh = vec2(
+        max((g.x * ca - g.y * sa) / denom, GAP),
+        max((g.y * ca - g.x * sa) / denom, GAP)
+      );
+
+      return sdBox(lp, bh);
+    }
+
+    void main() {
+      vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
+      float t = u_time * u_speed;
+
+      float extX = 0.5 * u_resolution.x / min(u_resolution.x, u_resolution.y);
+      float extY = 0.5 * u_resolution.y / min(u_resolution.x, u_resolution.y);
+      float pad = 0.04;                   // viewport padding on all sides
+      float spanX = 2.0 * extX - 2.0 * pad;
+      float spanY = 2.0 * extY - 2.0 * pad;
+
+      // Grid position (0-based from top-left, inset by padding)
+      vec2 gp = p + vec2(extX, extY) - pad;
+
+      // --- Find which row this pixel is in ---
+      int row = 0;
+      for (int i = 0; i < ROWS; i++) {
+        if (gp.y > rowBound(i, spanY)) row = i + 1;
+      }
+
+      // --- Find which column (per-row boundaries) ---
+      int col = 0;
+      for (int i = 0; i < COLS; i++) {
+        if (gp.x > colBound(i, row, spanX)) col = i + 1;
+      }
+
+      // --- Neighbor check with per-row column lookup ---
+      // Each row has different column boundaries, so find the actual
+      // overlapping column for each neighbor row, then check ±1 around it.
+      float minD = 1e5;
+      for (int dy = -1; dy <= 1; dy++) {
+        int nr = row + dy;
+        if (nr < 0 || nr >= ROWS) continue;
+
+        // Find column in THIS row for current x position
+        int ncol = 0;
+        if (dy != 0) {
+          for (int i = 0; i < COLS; i++) {
+            if (gp.x > colBound(i, nr, spanX)) ncol = i + 1;
+          }
+        } else {
+          ncol = col;
+        }
+
+        for (int dx = -1; dx <= 1; dx++) {
+          int nc = ncol + dx;
+          if (nc < 0 || nc >= COLS) continue;
+          minD = min(minD, cellSDF(gp, nc, nr, spanX, spanY, t));
+        }
+      }
+
+      float w = fwidth(minD);
+      float shape = 1.0 - smoothstep(0.0, w, minD);
+
+      // --- Color: monochromatic, slowly cycling ---
+      float colorPhase = t * 0.015 + u_seed * 0.17;
+      float cp = fract(colorPhase);
+
+      vec3 c0 = vec3(0.0, 0.14, 0.73);     // ultramarine
+      vec3 c1 = vec3(0.08, 0.07, 0.07);     // near-black
+      vec3 c2 = vec3(0.80, 0.12, 0.06);     // vermilion
+      vec3 c3 = vec3(0.90, 0.45, 0.05);     // deep orange
+
+      vec3 shapeColor;
+      if (cp < 0.25) {
+        shapeColor = mix(c0, c1, smoothstep(0.15, 0.25, cp));
+      } else if (cp < 0.50) {
+        shapeColor = mix(c1, c2, smoothstep(0.40, 0.50, cp));
+      } else if (cp < 0.75) {
+        shapeColor = mix(c2, c3, smoothstep(0.65, 0.75, cp));
+      } else {
+        shapeColor = mix(c3, c0, smoothstep(0.90, 1.00, cp));
+      }
+
+      vec3 finalCol = mix(BG, shapeColor, shape);
+
+      // --- Gouache finish ---
+      // Paper grain: fine texture visible on both background and painted areas
+      float grain = paperGrain(gl_FragCoord.xy);
+
+      // Pigment density variation on painted areas (matte, uneven gouache strokes)
+      float density = 1.0 - 0.10 * grain * shape;
+
+      // Paper texture on background (fibrous, rough)
+      float paperTex = 1.0 - 0.07 * grain * (1.0 - shape);
+
+      finalCol *= density * paperTex;
+
+      // Desaturation for matte gouache look (no gloss highlights)
+      float lum = dot(finalCol, vec3(0.299, 0.587, 0.114));
+      finalCol = mix(finalCol, vec3(lum), 0.12);
+
+      gl_FragColor = vec4(finalCol, 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+    gl.getExtension("OES_standard_derivatives");
+
+    const seed = Math.random() * 1000.0;
+
+    const params = {
+      speed: 0.15
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER,   document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition   = gl.getAttribLocation(program,  "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime       = gl.getUniformLocation(program, "u_time");
+    const uSpeed      = gl.getUniformLocation(program, "u_speed");
+    const uSeed       = gl.getUniformLocation(program, "u_seed");
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime,       now * 0.001);
+      gl.uniform1f(uSpeed,      params.speed);
+      gl.uniform1f(uSeed,       seed);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

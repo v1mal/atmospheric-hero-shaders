@@ -1,3 +1,4 @@
 [
-  { "slug": "mondrian", "title": "Mondrian", "previewTime": 4.0 }
+  { "slug": "mondrian",     "title": "Mondrian",     "previewTime": 4.0 },
+  { "slug": "metaesquema",  "title": "Metaesquema",  "previewTime": 3.0 }
 ]

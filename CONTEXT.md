@@ -29,8 +29,7 @@ Shaders/
 │   └── generate-previews.yml           # CI: auto-generate preview images (matrix: all collections)
 │
 ├── scripts/
-│   ├── generate-previews.js            # Playwright + Sharp preview capture script (--collection flag)
-│   └── strip-modal-boilerplate.py      # One-time script: removed modal HTML/JS from all shader files
+│   └── generate-previews.js            # Playwright + Sharp preview capture script (--collection flag)
 │
 ├── atmospheric-hero-shaders/           # Collection: atmospheric GLSL studies
 │   ├── index.html                      # Gallery page
@@ -125,13 +124,14 @@ Self-similar patterns at every scale — seashells, coastlines, galaxies, and th
 
 Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.
 
-### Geometric Abstraction (1 shader)
+### Geometric Abstraction (2 shaders)
 
 Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art (Mondrian, Malevich, Kandinsky), rendered as real-time GLSL shaders.
 
 | Shader | Slug | Description |
 |--------|------|-------------|
 | Mondrian | `mondrian` | Asymmetric black grid with primary-colored rectangles, slowly drifting lines and migrating colors |
+| Metaesquema | `metaesquema` | Grid of monochromatic rectangles with per-cell rotation, color cycling through Oiticica's palette |
 
 ---
 

@@ -19,10 +19,19 @@ Smoke, liquid, silk, aurora, and deep space. Fullscreen GLSL studies exploring t
 - Geometric and flow (Satin Drape, Aurora Borealis, Void Levitation, Nucleus Drift, Helix Void, Helix Core, Blue Vortex, Nexus Silk)
 - Celestial (Star Field, Event Horizon)
 
-### Fractal Universe — 1 shader
+### Fractal Universe — 4 shaders
 Self-similar structures found across nature, mathematics, and perception.
 
+- Sierpinski Carpet — recursive center-ninth removal with self-similar zoom loop
 - Mandelbrot Zoom — infinitely looping spiral dive into the Seahorse Valley
+- Julia Set — connected Julia set with cyclic escape-time coloring and slow c orbit
+- Plasma Threads — three logarithmic spiral attractors as glowing neon fibers
+
+### Geometric Abstraction — 2 shaders
+Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art.
+
+- Mondrian — asymmetric grid of black lines and primary-colored rectangles, randomized on every refresh
+- Metaesquema — grid of monochromatic rectangles with mirrored rotation, inspired by Helio Oiticica's gouache drawings
 
 ### Gradients — 2 shaders
 Animated WebGL gradient studies exploring color, flow, and transition.
@@ -58,7 +67,13 @@ Shaders/
 │   ├── shaders.json
 │   ├── previews/
 │   └── *.html
-├── fractal-universe/               # 1 shader
+├── fractal-universe/               # 4 shaders
+│   ├── index.html
+│   ├── preview.html
+│   ├── shaders.json
+│   ├── previews/
+│   └── *.html
+├── geometric-abstraction/          # 2 shaders
 │   ├── index.html
 │   ├── preview.html
 │   ├── shaders.json
