@@ -231,10 +231,16 @@ See `NEW_SHADER_WORKFLOW.md` for the full checklist. In brief:
 
 1. Create `{collection-name}/` at the repo root with: `index.html`, `preview.html`, `shaders.json` (`[]`), `previews/.gitkeep`
 2. Copy `preview.html` from an existing collection — only the CSS path (`../shared/ui.css`) needs updating
-3. Add a `.collection-nav__link` entry for the new collection in every existing gallery's `index.html`
-4. Add a hub card for the new collection in the root `index.html`
-5. Add the new collection to the matrix in `.github/workflows/generate-previews.yml`
-6. Update `CONTEXT.md` and `CLAUDE.md`
+3. The new gallery `index.html` must include these three tags in `<head>` (required for shared UI and icons):
+   ```html
+   <link rel="stylesheet" href="../shared/ui.css" />
+   <script defer src="https://unpkg.com/lucide@latest"></script>
+   <script defer src="../shared/ui.js"></script>
+   ```
+4. Add a `.collection-nav__link` entry for the new collection in every existing gallery's `index.html`
+5. Add a hub card for the new collection in the root `index.html`
+6. Add the new collection to the matrix in `.github/workflows/generate-previews.yml`
+7. Update `CONTEXT.md` and `CLAUDE.md`
 
 ---
 

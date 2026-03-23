@@ -8,7 +8,7 @@ Collections live as sibling folders at the repo root. See `CONTEXT.md` for full 
 
 Current collections:
 - `atmospheric-hero-shaders/` — smoke, liquid, silk, aurora, deep space (21 shaders)
-- `gradient-shaders/` — animated gradient studies (0 shaders)
+- `gradient-shaders/` — animated gradient studies (2 shaders)
 
 ---
 
@@ -45,4 +45,4 @@ See `NEW_SHADER_WORKFLOW.md` for the full checklist. In brief:
 - Shader UI paths must always be `../shared/ui.css` and `../shared/ui.js`
 - Follow the cinematic techniques in `SHADERS_GUIDE.md` (ACES tonemapping, film grain, inverse-square bloom, liquid distortion)
 - No em dashes in copy, descriptions, or UI text
-- When adding a new collection: update the nav in all existing gallery `index.html` files, add a hub card to root `index.html`, add the collection to the CI matrix in `.github/workflows/generate-previews.yml`, and update `CONTEXT.md`
+- When adding a new collection: the new gallery `index.html` must load `../shared/ui.css`, `https://unpkg.com/lucide@latest`, and `../shared/ui.js` in `<head>`; update the nav in all existing gallery `index.html` files; add a hub card to root `index.html`; add the collection to the CI matrix in `.github/workflows/generate-previews.yml`; and update `CONTEXT.md`
