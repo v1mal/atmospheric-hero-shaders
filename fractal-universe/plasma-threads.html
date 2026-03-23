@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Plasma Threads</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    void main() {
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    uniform vec2  u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_density;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+    }
+
+    // Spectral neon palette — blue, cyan, green, yellow, red, magenta
+    vec3 palette(float t) {
+      return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.65, 0.33, 0.0)));
+    }
+
+    // Logarithmic spiral stream function: psi = w * (atan2(r) + k * ln|r|)
+    // Level sets of psi are logarithmic spirals winding around the pole.
+    // Gradient is computed analytically to avoid finite-difference branch-cut artifacts.
+    //
+    // d/dx atan(y/x) = -y / r2,   d/dy atan(y/x) = x / r2
+    // d/dx 0.5*ln(r2) = x / r2,   d/dy 0.5*ln(r2) = y / r2
+    // so grad(atan + k * 0.5*ln(r2)) = vec2(-y + k*x, x + k*y) / r2
+    void spiralFG(vec2 p, vec2 center, float w, float k,
+                  out float f, out vec2 g) {
+      vec2  r  = p - center;
+      float r2 = dot(r, r) + 0.0004;          // soft singularity prevents NaN at pole
+      f = w * (atan(r.y, r.x) + k * 0.5 * log(r2));
+      g = w * vec2(-r.y + k * r.x, r.x + k * r.y) / r2;
+    }
+
+    // One glowing fiber band: renders all level sets of a scalar field as
+    // thin Gaussian ribbons. Returns additive luminance contribution.
+    vec3 fiber(float f, vec2 grad, float spacing, float flowPhase,
+               float width, float colorOffset, float brightness) {
+      float gLen = max(length(grad), 0.4);
+      float t    = fract((f - flowPhase) / spacing);
+      float d    = min(t, 1.0 - t) * spacing / gLen;      // UV-space dist to nearest level set
+      float g    = exp(-d * d / (width * width));
+      return g * palette(fract(f * 0.07 + colorOffset)) * brightness;
+    }
+
+    void main() {
+      vec2  p      = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
+      float t      = u_time * u_speed;
+      float flowPh = u_time * u_speed * 0.8;   // lines flow along themselves
+
+      // Three animated vortex poles — slow drift keeps the composition alive
+      vec2 pos1 = vec2(-0.28 + 0.05 * cos(t * 0.19),  0.13 + 0.04 * sin(t * 0.13));
+      vec2 pos2 = vec2( 0.24 + 0.04 * sin(t * 0.17), -0.10 + 0.05 * cos(t * 0.11));
+      vec2 pos3 = vec2(-0.04 + 0.06 * cos(t * 0.23), -0.21 + 0.04 * sin(t * 0.21));
+
+      // Compute stream function and gradient for each pole, then sum
+      float f1, f2, f3;
+      vec2  g1, g2, g3;
+      spiralFG(p, pos1,  1.5,  0.75, f1, g1);   // CCW, moderate pitch
+      spiralFG(p, pos2, -1.2,  0.90, f2, g2);   // CW (negative weight), steeper pitch
+      spiralFG(p, pos3,  0.8,  0.50, f3, g3);   // CCW, shallow pitch — broad sweeps
+
+      float f    = f1 + f2 + f3;
+      vec2  grad = g1 + g2 + g3;
+
+      float sp = u_density;  // line spacing in stream-function units
+
+      // Three fiber families: main, half-offset, and finer sub-spacing.
+      // Additive blending — crossings accumulate toward white, mimicking real light.
+      vec3 col = vec3(0.0);
+      col += fiber(f, grad, sp,        flowPh,        0.0022, 0.00, 1.4);
+      col += fiber(f, grad, sp,        flowPh + sp * 0.5, 0.0016, 0.50, 1.1);
+      col += fiber(f, grad, sp * 0.6,  flowPh,        0.0012, 0.25, 0.8);
+
+      // Faint halo near vortex cores (where threads converge most densely)
+      float r = length(p);
+      col += 0.06 * exp(-r * r * 4.0) * palette(fract(f * 0.04 + 0.1));
+
+      // Radial falloff — dims toward screen edges, concentrates the glow centrally
+      col *= 0.18 + 0.82 * exp(-r * r * 0.9);
+
+      // Tonemap + gamma
+      col  = aces(col * 1.15);
+      col  = pow(col, vec3(1.0 / 2.2));
+
+      // Film grain
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      speed:   0.35,
+      density: 0.28
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER,   document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition   = gl.getAttribLocation(program,  "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime       = gl.getUniformLocation(program, "u_time");
+    const uSpeed      = gl.getUniformLocation(program, "u_speed");
+    const uDensity    = gl.getUniformLocation(program, "u_density");
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime,       now * 0.001);
+      gl.uniform1f(uSpeed,      params.speed);
+      gl.uniform1f(uDensity,    params.density);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

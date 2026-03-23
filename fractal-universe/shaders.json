@@ -1,5 +1,6 @@
 [
   { "slug": "sierpinski-carpet", "title": "Sierpinski Carpet", "previewTime": 2.0 },
   { "slug": "mandelbrot-zoom",   "title": "Mandelbrot Zoom",   "previewTime": 8.0 },
-  { "slug": "julia-set",         "title": "Julia Set",         "previewTime": 4.0 }
+  { "slug": "julia-set",         "title": "Julia Set",         "previewTime": 4.0 },
+  { "slug": "plasma-threads",    "title": "Plasma Threads",    "previewTime": 6.0 }
 ]
