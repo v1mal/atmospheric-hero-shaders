@@ -38,6 +38,12 @@ See `NEW_SHADER_WORKFLOW.md` for the full checklist. In brief:
 
 ---
 
+## Git Rules
+
+- Never commit or push without explicitly showing the user what will be committed and getting confirmation first
+
+---
+
 ## Key Rules
 
 - Never introduce external runtime dependencies to shader files

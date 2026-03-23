@@ -41,7 +41,7 @@
     uniform vec2  u_resolution;
     uniform float u_time;
     uniform float u_speed;
-    uniform float u_density;
+    uniform float u_sharpness;   // line thinness (8–20)
 
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -51,76 +51,124 @@
       return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
     }
 
-    // Spectral neon palette — blue, cyan, green, yellow, red, magenta
     vec3 palette(float t) {
       return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.65, 0.33, 0.0)));
     }
 
-    // Logarithmic spiral stream function: psi = w * (atan2(r) + k * ln|r|)
-    // Level sets of psi are logarithmic spirals winding around the pole.
-    // Gradient is computed analytically to avoid finite-difference branch-cut artifacts.
-    //
-    // d/dx atan(y/x) = -y / r2,   d/dy atan(y/x) = x / r2
-    // d/dx 0.5*ln(r2) = x / r2,   d/dy 0.5*ln(r2) = y / r2
-    // so grad(atan + k * 0.5*ln(r2)) = vec2(-y + k*x, x + k*y) / r2
-    void spiralFG(vec2 p, vec2 center, float w, float k,
-                  out float f, out vec2 g) {
-      vec2  r  = p - center;
-      float r2 = dot(r, r) + 0.0004;          // soft singularity prevents NaN at pole
-      f = w * (atan(r.y, r.x) + k * 0.5 * log(r2));
-      g = w * vec2(-r.y + k * r.x, r.x + k * r.y) / r2;
+    // --- Complex arithmetic on unit vectors ---
+    // Re(z^N) = cos(N*theta), Im(z^N) = sin(N*theta) — smooth polynomials, no atan2.
+    vec2 cmul(vec2 a, vec2 b) { return vec2(a.x*b.x - a.y*b.y, a.x*b.y + a.y*b.x); }
+    vec2 csq(vec2 z) { return vec2(z.x*z.x - z.y*z.y, 2.0*z.x*z.y); }
+    vec2 ccb(vec2 z) { return cmul(csq(z), z); }    // z^3
+    vec2 cq4(vec2 z) { return csq(csq(z)); }         // z^4
+
+    // Chebyshev harmonic doubling/tripling — multiplies line count for free.
+    float ch2(float c) { return 2.0*c*c - 1.0; }
+    float ch3(float c) { return c*(4.0*c*c - 3.0); }
+
+    // 2D value noise
+    float noise2(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(hash(i),                  hash(i + vec2(1.0, 0.0)), f.x),
+        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+        f.y);
     }
 
-    // One glowing fiber band: renders all level sets of a scalar field as
-    // thin Gaussian ribbons. Returns additive luminance contribution.
-    vec3 fiber(float f, vec2 grad, float spacing, float flowPhase,
-               float width, float colorOffset, float brightness) {
-      float gLen = max(length(grad), 0.4);
-      float t    = fract((f - flowPhase) / spacing);
-      float d    = min(t, 1.0 - t) * spacing / gLen;      // UV-space dist to nearest level set
-      float g    = exp(-d * d / (width * width));
-      return g * palette(fract(f * 0.07 + colorOffset)) * brightness;
+    // One pass of the spiral field. Called at three different scales for layering.
+    // p      — sample position for this layer
+    // t      — animation time
+    // phOff  — phase offset separates layers tonally
+    vec3 spiralLayer(vec2 p, float t, float phOff) {
+      // Animated vortex poles
+      vec2 pos1 = vec2(-0.22 + 0.04*cos(t*0.19),  0.10 + 0.03*sin(t*0.13));
+      vec2 pos2 = vec2( 0.22 + 0.03*sin(t*0.17), -0.07 + 0.04*cos(t*0.11));
+      vec2 pos3 = vec2(-0.04 + 0.05*cos(t*0.23), -0.24 + 0.03*sin(t*0.21));
+
+      // Long-range directional bias — creates large sweeping arcs across the field
+      vec2 pw = p + vec2(0.08 * p.y, -0.05 * p.x);
+
+      // Time-evolving spatial warp — structure changes, not just phase rotation
+      pw += 0.02 * vec2(sin(pw.y * 3.0 + t), cos(pw.x * 3.0 - t));
+
+      // IQ domain warp (2 octaves) — organic curvature
+      vec2 wq = vec2(noise2(pw*2.2 + t*0.04), noise2(pw*2.2 + vec2(5.2, 1.7) + t*0.04));
+      pw += 0.04 * (vec2(noise2(pw*2.2 + 4.0*wq + vec2(1.7, 9.2)),
+                         noise2(pw*2.2 + 4.0*wq + vec2(8.3, 2.8))) - 0.5);
+
+      // Unit direction vectors — smooth, no atan2
+      vec2 da = pw - pos1; float ra = max(length(da), 0.018); vec2 ua = da / ra;
+      vec2 db = pw - pos2; float rb = max(length(db), 0.018); vec2 ub = db / rb;
+      vec2 dc = pw - pos3; float rc = max(length(dc), 0.018); vec2 uc = dc / rc;
+
+      // Combined angular phasor: Re(ua^4 * conj(ub^3) * uc^3).
+      // Equivalent to cos(4*t1 - 3*t2 + 3*t3) — smooth polynomial, zero branch cuts.
+      vec2 aa    = cq4(ua);
+      vec2 ab    = vec2(ccb(ub).x, -ccb(ub).y);    // CW: conjugate
+      vec2 ac    = ccb(uc);
+      vec2 angZ  = cmul(cmul(aa, ab), ac);
+
+      // Log-radial spiral term + chaotic phase noise for micro-instability
+      float logR  = 2.2*log(ra) - 1.8*log(rb) + 1.5*log(rc);
+      float phase = logR - t * 0.42 + phOff;
+      phase += 0.05 * noise2(pw * 3.0 + t * 0.2);   // inject instability
+
+      float cp   = cos(phase);
+      float sp   = sin(phase);
+      float val  = angZ.x * cp - angZ.y * sp;        // cos(combined spiral angle)
+      float valI = angZ.x * sp + angZ.y * cp;        // sin — used for color
+
+      // Chebyshev harmonic densification
+      float v2 = ch2(val);
+      float v3 = ch3(val);
+
+      // Local sharpness variation — lines thinner/thicker per pixel
+      float localShp = u_sharpness * (0.8 + 0.4 * noise2(pw * 4.0));
+
+      float g1 = pow(max(0.0, val), localShp);
+      float g2 = pow(max(0.0,  v2), localShp * 0.9);
+      float g3 = pow(max(0.0,  v3), localShp * 0.8);
+
+      // Color: phase-based hue + spatial noise for local variation
+      float colorT = valI * 0.5 + 0.5 + 0.1 * noise2(pw * 2.0);
+
+      vec3 col = vec3(0.0);
+      col += g1 * palette(colorT + 0.00) * 0.35;
+      col += g2 * palette(colorT + 0.33) * 0.22;
+      col += g3 * palette(colorT + 0.17) * 0.15;
+
+      // Ridge depth: surface normal estimated from log-radial gradient.
+      // grad(val) ~= -valI * grad(logR), maps to a plausible surface normal.
+      vec2 gLR = vec2(
+        2.2*(pw.x-pos1.x)/(ra*ra) - 1.8*(pw.x-pos2.x)/(rb*rb) + 1.5*(pw.x-pos3.x)/(rc*rc),
+        2.2*(pw.y-pos1.y)/(ra*ra) - 1.8*(pw.y-pos2.y)/(rb*rb) + 1.5*(pw.y-pos3.y)/(rc*rc)
+      );
+      vec3 N = normalize(vec3(-valI * gLR * 0.25, 1.0));
+      col *= mix(0.65, 1.0, 0.55 + 0.45 * dot(N, normalize(vec3(0.35, 0.55, 1.0))));
+
+      return col;
     }
 
     void main() {
-      vec2  p      = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
-      float t      = u_time * u_speed;
-      float flowPh = u_time * u_speed * 0.8;   // lines flow along themselves
+      vec2  p = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
+      float t = u_time * u_speed;
 
-      // Three animated vortex poles — slow drift keeps the composition alive
-      vec2 pos1 = vec2(-0.28 + 0.05 * cos(t * 0.19),  0.13 + 0.04 * sin(t * 0.13));
-      vec2 pos2 = vec2( 0.24 + 0.04 * sin(t * 0.17), -0.10 + 0.05 * cos(t * 0.11));
-      vec2 pos3 = vec2(-0.04 + 0.06 * cos(t * 0.23), -0.21 + 0.04 * sin(t * 0.21));
-
-      // Compute stream function and gradient for each pole, then sum
-      float f1, f2, f3;
-      vec2  g1, g2, g3;
-      spiralFG(p, pos1,  1.5,  0.75, f1, g1);   // CCW, moderate pitch
-      spiralFG(p, pos2, -1.2,  0.90, f2, g2);   // CW (negative weight), steeper pitch
-      spiralFG(p, pos3,  0.8,  0.50, f3, g3);   // CCW, shallow pitch — broad sweeps
-
-      float f    = f1 + f2 + f3;
-      vec2  grad = g1 + g2 + g3;
-
-      float sp = u_density;  // line spacing in stream-function units
-
-      // Three fiber families: main, half-offset, and finer sub-spacing.
-      // Additive blending — crossings accumulate toward white, mimicking real light.
+      // Multi-scale layering: same field sampled at three spatial frequencies.
+      // Finer layers reveal detail invisible at the base scale — the key depth driver.
       vec3 col = vec3(0.0);
-      col += fiber(f, grad, sp,        flowPh,        0.0022, 0.00, 1.4);
-      col += fiber(f, grad, sp,        flowPh + sp * 0.5, 0.0016, 0.50, 1.1);
-      col += fiber(f, grad, sp * 0.6,  flowPh,        0.0012, 0.25, 0.8);
+      col += spiralLayer(p,              t, 0.0);
+      col += spiralLayer(p * 1.65 + 1.3, t, 1.1) * 0.65;
+      col += spiralLayer(p * 2.4  - 2.0, t, 2.2) * 0.45;
 
-      // Faint halo near vortex cores (where threads converge most densely)
-      float r = length(p);
-      col += 0.06 * exp(-r * r * 4.0) * palette(fract(f * 0.04 + 0.1));
-
-      // Radial falloff — dims toward screen edges, concentrates the glow centrally
-      col *= 0.18 + 0.82 * exp(-r * r * 0.9);
+      // Radial falloff and faint core glow — applied to the composite
+      float rp = length(p);
+      col *= 0.02 + 0.98 * exp(-rp * rp * 2.0);
 
       // Tonemap + gamma
-      col  = aces(col * 1.15);
-      col  = pow(col, vec3(1.0 / 2.2));
+      col = aces(col * 1.1);
+      col = pow(col, vec3(1.0 / 2.2));
 
       // Film grain
       col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
@@ -134,8 +182,8 @@
     const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
 
     const params = {
-      speed:   0.35,
-      density: 0.28
+      speed:     0.28,
+      sharpness: 24.0
     };
 
     function createShader(type, source) {
@@ -163,7 +211,7 @@
     const uResolution = gl.getUniformLocation(program, "u_resolution");
     const uTime       = gl.getUniformLocation(program, "u_time");
     const uSpeed      = gl.getUniformLocation(program, "u_speed");
-    const uDensity    = gl.getUniformLocation(program, "u_density");
+    const uSharpness  = gl.getUniformLocation(program, "u_sharpness");
 
     function resize() {
       const dpr    = Math.min(window.devicePixelRatio || 1, 2);
@@ -185,7 +233,7 @@
       gl.uniform2f(uResolution, canvas.width, canvas.height);
       gl.uniform1f(uTime,       now * 0.001);
       gl.uniform1f(uSpeed,      params.speed);
-      gl.uniform1f(uDensity,    params.density);
+      gl.uniform1f(uSharpness,  params.sharpness);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       requestAnimationFrame(render);
     }
