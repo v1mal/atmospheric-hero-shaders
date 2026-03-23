@@ -46,7 +46,13 @@ Shaders/
 │   ├── shaders.json
 │   └── previews/
 │
-└── fractal-universe/                   # Collection: fractal and self-similar pattern studies
+├── fractal-universe/                   # Collection: fractal and self-similar pattern studies
+│   ├── index.html                      # Gallery page
+│   ├── preview.html                    # Lightweight iframe renderer for previews
+│   ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
+│   └── previews/                       # Auto-generated WebP thumbnails (1600x1200)
+│
+└── geometric-abstraction/             # Collection: abstract art-inspired geometric studies
     ├── index.html                      # Gallery page
     ├── preview.html                    # Lightweight iframe renderer for previews
     ├── shaders.json                    # Manifest (slug, title, previewTime per shader)
@@ -118,6 +124,14 @@ Self-similar patterns at every scale — seashells, coastlines, galaxies, and th
 ### Gradients (0 shaders)
 
 Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.
+
+### Geometric Abstraction (1 shader)
+
+Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art (Mondrian, Malevich, Kandinsky), rendered as real-time GLSL shaders.
+
+| Shader | Slug | Description |
+|--------|------|-------------|
+| Mondrian | `mondrian` | Asymmetric black grid with primary-colored rectangles, slowly drifting lines and migrating colors |
 
 ---
 

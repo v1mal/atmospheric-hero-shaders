@@ -10,6 +10,8 @@ on:
       - "gradient-shaders/shaders.json"
       - "fractal-universe/*.html"
       - "fractal-universe/shaders.json"
+      - "geometric-abstraction/*.html"
+      - "geometric-abstraction/shaders.json"
       - "scripts/generate-previews.js"
   workflow_dispatch:
     inputs:
@@ -36,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe]
+        collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe, geometric-abstraction]
       fail-fast: false
 
     steps:
