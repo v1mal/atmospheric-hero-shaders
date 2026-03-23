@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "generate-previews": "node scripts/generate-previews.js",
-    "generate-previews:all": "node scripts/generate-previews.js --all --force"
+    "generate-previews:all": "node scripts/generate-previews.js --all --force",
+    "generate-previews:gradient": "node scripts/generate-previews.js --collection gradient-shaders",
+    "generate-previews:gradient:all": "node scripts/generate-previews.js --collection gradient-shaders --all --force"
   },
   "dependencies": {
     "playwright": "^1.58.2",

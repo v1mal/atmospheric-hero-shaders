@@ -5,10 +5,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Atmospheric Shaders</title>
-  <link rel="stylesheet" href="./ui.css" />
+  <link rel="stylesheet" href="../shared/ui.css" />
 </head>
 <body class="gallery-page">
   <main class="shell page-shell">
+
+    <nav class="collection-nav">
+      <a href="../" class="collection-nav__home">All Collections</a>
+      <div class="collection-nav__links">
+        <a href="../atmospheric-hero-shaders/" class="collection-nav__link collection-nav__link--active">Atmospheric</a>
+        <a href="../gradient-shaders/" class="collection-nav__link">Gradients</a>
+      </div>
+    </nav>
+
     <h1 class="page-title">Atmospheric Shaders</h1>
     <p class="intro page-intro">
       Fullscreen GLSL experiments exploring the boundary between darkness and luminance. Smoke, liquid, silk, aurora, and deep space, each built as a single self-contained HTML file.
@@ -210,30 +219,6 @@
     <p>&copy; <span id="footer-year"></span> <a href="https://vimal.works/" target="_blank" rel="noopener">Vimal Kandoth</a></p>
     <p>Released under the <a href="https://github.com/v1mal/atmospheric-hero-shaders/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> &mdash; free to use, modify, and build on.</p>
   </footer>
-
-  <style>
-    .page-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 4rem;
-      padding: 2rem 1.5rem;
-      border-top: 1px solid rgba(220, 235, 238, 0.10);
-      color: var(--ui-color-muted);
-      font-size: 0.82rem;
-    }
-    .page-footer p {
-      margin: 0;
-    }
-    .page-footer a {
-      color: var(--ui-color-muted);
-      text-decoration: underline;
-      text-underline-offset: 3px;
-    }
-    .page-footer a:hover {
-      color: var(--ui-color-text);
-    }
-  </style>
 
   <script>
     document.getElementById("footer-year").textContent = new Date().getFullYear();

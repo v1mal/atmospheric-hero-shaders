@@ -1,48 +1,45 @@
-Save this as `NEW_SHADER_WORKFLOW.md` wherever you want outside the repo:
-
-```md
 # New Shader Workflow
 
-Use this checklist every time you add a new shader experiment to the playground.
+Use this checklist every time you add a new shader to any collection.
 
-## 1. Add the Shader
+---
 
-Create the new shader file inside:
+## 1. Create the Shader File
 
-```text
-atmospheric-hero-shaders/
+Create the shader inside the target collection folder:
+
+```
+{collection}/my-new-shader.html
 ```
 
-Example:
-
-```text
+Examples:
+```
 atmospheric-hero-shaders/my-new-shader.html
+gradient-shaders/my-new-shader.html
 ```
 
-## 2. Add It to the Gallery
-
-Update:
-
-```text
-atmospheric-hero-shaders/index.html
+UI paths inside every shader file must be:
+```html
+<link rel="stylesheet" href="../shared/ui.css" />
+<script defer src="https://unpkg.com/lucide@latest"></script>
+<script defer src="../shared/ui.js"></script>
 ```
 
-Add a new card that links to the shader page.
+## 2. Add a Gallery Card
+
+Add a card to the collection's `index.html`:
+
+```
+{collection}/index.html
+```
 
 ## 3. Add Preview Metadata
 
-Update:
+Add an entry to the collection's `shaders.json`:
 
-```text
-atmospheric-hero-shaders/shaders.json
 ```
-
-Add a new entry with:
-- `slug`
-- `title`
-- `previewTime`
-
-Example:
+{collection}/shaders.json
+```
 
 ```json
 {
@@ -52,43 +49,40 @@ Example:
 }
 ```
 
-## 4. Commit and Push Your Shader Changes
-
-Run:
+## 4. Commit and Push
 
 ```bash
-cd /Users/vimal/Desktop/shaders
-git status --short
-git add atmospheric-hero-shaders
-git commit -m "Add my-new-shader experiment"
+cd /Users/vimal/Desktop/Shaders
+git add {collection}
+git commit -m "Add my-new-shader to {collection}"
 git push
 ```
 
 ## 5. Wait for Preview Generation
 
-Pushing to `main` automatically triggers the `Generate Shader Previews` GitHub Action. It will generate the `.webp` preview and commit it back to `main`.
+Pushing to `main` automatically triggers the `Generate Shader Previews` GitHub Action for the collection that changed. It generates the `.webp` preview and commits it back to `main`.
 
-## 6. Sync the Auto-Generated Preview Commit
-
-After the workflow succeeds, pull the updated `main` branch:
+## 6. Pull the Bot Commit
 
 ```bash
-cd /Users/vimal/Desktop/shaders
 git pull --rebase origin main
 ```
+
+---
 
 ## Short Version
 
 ```bash
-cd /Users/vimal/Desktop/shaders
-git add atmospheric-hero-shaders
-git commit -m "Add my-new-shader experiment"
+cd /Users/vimal/Desktop/Shaders
+git add {collection}
+git commit -m "Add my-new-shader to {collection}"
 git push
-```
-
-Then wait for the `Generate Shader Previews` Action to finish and run:
-
-```bash
+# wait for CI
 git pull --rebase origin main
 ```
-```
+
+---
+
+## Adding a New Collection
+
+See the "Adding a New Collection" section in `CONTEXT.md` for the full checklist.

@@ -420,6 +420,84 @@ p {
   background: #050607;
 }
 
+.collection-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-4);
+  margin-bottom: var(--ui-space-8);
+  padding-bottom: var(--ui-space-5);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.collection-nav__home {
+  color: var(--ui-color-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: color var(--ui-speed-fast) ease;
+}
+
+.collection-nav__home:hover {
+  color: var(--ui-color-text);
+}
+
+.collection-nav__links {
+  display: flex;
+  gap: var(--ui-space-2);
+  margin-left: auto;
+}
+
+.collection-nav__link {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 var(--ui-space-4);
+  border-radius: var(--ui-radius-pill);
+  border: 1px solid var(--ui-border);
+  background: transparent;
+  color: var(--ui-color-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: color var(--ui-speed-fast) ease, border-color var(--ui-speed-fast) ease, background var(--ui-speed-fast) ease;
+}
+
+.collection-nav__link:hover {
+  color: var(--ui-color-text);
+  border-color: var(--ui-border-strong);
+}
+
+.collection-nav__link--active {
+  color: var(--ui-color-text);
+  border-color: var(--ui-border-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4rem;
+  padding: 2rem 1.5rem;
+  border-top: 1px solid rgba(220, 235, 238, 0.10);
+  color: var(--ui-color-muted);
+  font-size: 0.82rem;
+}
+
+.page-footer p {
+  margin: 0;
+}
+
+.page-footer a {
+  color: var(--ui-color-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.page-footer a:hover {
+  color: var(--ui-color-text);
+}
+
 @media (max-width: 720px) {
   body {
     padding: 18px 16px 32px;
@@ -439,5 +517,10 @@ p {
   .view-code-link {
     min-height: 40px !important;
     padding: 0 14px !important;
+  }
+
+  .collection-nav {
+    flex-wrap: wrap;
+    gap: var(--ui-space-3);
   }
 }

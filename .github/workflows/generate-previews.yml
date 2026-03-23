@@ -6,9 +6,16 @@ on:
     paths:
       - "atmospheric-hero-shaders/*.html"
       - "atmospheric-hero-shaders/shaders.json"
+      - "gradient-shaders/*.html"
+      - "gradient-shaders/shaders.json"
       - "scripts/generate-previews.js"
   workflow_dispatch:
     inputs:
+      collection:
+        description: "Collection to generate previews for (atmospheric-hero-shaders or gradient-shaders)"
+        required: false
+        default: "atmospheric-hero-shaders"
+        type: string
       shader:
         description: "Optional shader slug to generate"
         required: false
@@ -25,6 +32,10 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        collection: [atmospheric-hero-shaders, gradient-shaders]
+      fail-fast: false
 
     steps:
       - name: Checkout
@@ -32,39 +43,58 @@ jobs:
         with:
           ref: main
 
+      - name: Check for relevant changes
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.collection }}" = "${{ matrix.collection }}" ]; then
+              echo "run=true" >> $GITHUB_OUTPUT
+            else
+              echo "run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            git diff --name-only HEAD~1 HEAD | grep -q "^${{ matrix.collection }}/" && echo "run=true" >> $GITHUB_OUTPUT || echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Node
+        if: steps.changed.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
+        if: steps.changed.outputs.run == 'true'
         run: npm install
 
       - name: Install Playwright Chromium
+        if: steps.changed.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Generate previews
+        if: steps.changed.outputs.run == 'true'
         run: |
           if [ -n "${{ inputs.shader }}" ] && [ "${{ inputs.force }}" = "true" ]; then
-            npm run generate-previews -- --shader "${{ inputs.shader }}" --force
+            npm run generate-previews -- --collection ${{ matrix.collection }} --shader "${{ inputs.shader }}" --force
           elif [ -n "${{ inputs.shader }}" ]; then
-            npm run generate-previews -- --shader "${{ inputs.shader }}"
+            npm run generate-previews -- --collection ${{ matrix.collection }} --shader "${{ inputs.shader }}"
           elif [ "${{ inputs.force }}" = "true" ]; then
-            npm run generate-previews:all
+            npm run generate-previews -- --collection ${{ matrix.collection }} --all --force
           else
-            npm run generate-previews
+            npm run generate-previews -- --collection ${{ matrix.collection }}
           fi
 
       - name: Upload preview artifacts
+        if: steps.changed.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: shader-previews
-          path: atmospheric-hero-shaders/previews
+          name: shader-previews-${{ matrix.collection }}
+          path: ${{ matrix.collection }}/previews
 
       - name: Commit generated previews
+        if: steps.changed.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add atmospheric-hero-shaders/previews
-          git diff --cached --quiet || git commit -m "Generate shader previews"
+          git add ${{ matrix.collection }}/previews
+          git diff --cached --quiet || git commit -m "Generate shader previews [${{ matrix.collection }}]"
           git push origin HEAD:main

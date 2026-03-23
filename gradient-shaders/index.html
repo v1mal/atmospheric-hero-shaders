@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gradient Shaders</title>
+  <link rel="stylesheet" href="../shared/ui.css" />
+</head>
+<body class="gallery-page">
+  <main class="shell page-shell">
+
+    <nav class="collection-nav">
+      <a href="../" class="collection-nav__home">All Collections</a>
+      <div class="collection-nav__links">
+        <a href="../atmospheric-hero-shaders/" class="collection-nav__link">Atmospheric</a>
+        <a href="../gradient-shaders/" class="collection-nav__link collection-nav__link--active">Gradients</a>
+      </div>
+    </nav>
+
+    <h1 class="page-title">Gradient Shaders</h1>
+    <p class="intro page-intro">
+      Animated WebGL gradient studies exploring color, flow, and transition. Each shader is a single self-contained HTML file.
+    </p>
+
+    <section class="grid gallery-grid">
+      <!-- Shader cards will be added here as shaders are created -->
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <p>&copy; <span id="footer-year"></span> <a href="https://vimal.works/" target="_blank" rel="noopener">Vimal Kandoth</a></p>
+    <p>Released under the <a href="https://github.com/v1mal/atmospheric-hero-shaders/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> &mdash; free to use, modify, and build on.</p>
+  </footer>
+
+  <script>
+    document.getElementById("footer-year").textContent = new Date().getFullYear();
+
+    for (const previewImage of document.querySelectorAll(".shader-card__preview[data-shader-slug]")) {
+      previewImage.addEventListener("error", () => {
+        const slug = previewImage.getAttribute("data-shader-slug");
+        if (!slug || previewImage.dataset.fallbackApplied === "true") return;
+        previewImage.dataset.fallbackApplied = "true";
+
+        const fallback = document.createElement("iframe");
+        fallback.src = `./preview.html?shader=${encodeURIComponent(slug)}`;
+        fallback.title = previewImage.alt;
+        fallback.loading = "lazy";
+        fallback.className = "shader-card__preview";
+        previewImage.replaceWith(fallback);
+      }, { once: true });
+    }
+  </script>
+</body>
+</html>

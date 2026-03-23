@@ -1,9 +1,133 @@
 <!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=./atmospheric-hero-shaders/" />
-  <link rel="canonical" href="./atmospheric-hero-shaders/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shader Studies</title>
+  <link rel="stylesheet" href="./shared/ui.css" />
 </head>
-<body></body>
+<body class="gallery-page">
+  <main class="shell page-shell">
+    <h1 class="page-title">Shader Studies</h1>
+    <p class="intro page-intro">
+      A growing collection of fullscreen WebGL/GLSL experiments. Each shader is a single self-contained HTML file with zero runtime dependencies.
+    </p>
+
+    <section class="hub-grid">
+
+      <a class="hub-card" href="./atmospheric-hero-shaders/">
+        <div class="hub-card__body">
+          <span class="hub-card__label">21 shaders</span>
+          <h2 class="hub-card__title">Atmospheric</h2>
+          <p class="hub-card__description">Smoke, liquid, silk, aurora, and deep space. Fullscreen GLSL studies exploring the boundary between darkness and luminance.</p>
+        </div>
+        <span class="hub-card__cta">View Collection</span>
+      </a>
+
+      <a class="hub-card" href="./gradient-shaders/">
+        <div class="hub-card__body">
+          <span class="hub-card__label">New</span>
+          <h2 class="hub-card__title">Gradients</h2>
+          <p class="hub-card__description">Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.</p>
+        </div>
+        <span class="hub-card__cta">View Collection</span>
+      </a>
+
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <p>&copy; <span id="footer-year"></span> <a href="https://vimal.works/" target="_blank" rel="noopener">Vimal Kandoth</a></p>
+    <p>Released under the <a href="https://github.com/v1mal/atmospheric-hero-shaders/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> &mdash; free to use, modify, and build on.</p>
+  </footer>
+
+  <style>
+    .hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--ui-space-5);
+    }
+
+    .hub-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 240px;
+      padding: var(--ui-space-7);
+      border: 1px solid var(--ui-border);
+      border-radius: var(--ui-radius-lg);
+      background: linear-gradient(180deg, rgba(13, 18, 21, 0.8), rgba(8, 12, 15, 0.92));
+      box-shadow: var(--ui-shadow-md);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transition: transform var(--ui-speed-base) var(--ui-ease-out), border-color var(--ui-speed-base) var(--ui-ease-out), background var(--ui-speed-base) var(--ui-ease-out);
+    }
+
+    .hub-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(220, 235, 238, 0.24);
+      background: var(--ui-surface-hover);
+    }
+
+    .hub-card__body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--ui-space-3);
+    }
+
+    .hub-card__label {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: var(--ui-radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--ui-color-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .hub-card__title {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .hub-card__description {
+      margin: 0;
+      color: var(--ui-color-muted);
+      font-size: 0.95rem;
+      line-height: 1.65;
+    }
+
+    .hub-card__cta {
+      margin-top: var(--ui-space-6);
+      color: var(--ui-color-accent);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    @media (max-width: 720px) {
+      .hub-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hub-card {
+        min-height: 200px;
+        padding: var(--ui-space-5);
+      }
+    }
+  </style>
+
+  <script>
+    document.getElementById("footer-year").textContent = new Date().getFullYear();
+  </script>
+</body>
 </html>
