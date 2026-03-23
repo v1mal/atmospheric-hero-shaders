@@ -2,6 +2,7 @@
   "name": "atmospheric-hero-shaders",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "commonjs",
   "scripts": {
     "generate-previews": "node scripts/generate-previews.js",

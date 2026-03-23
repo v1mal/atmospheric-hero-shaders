@@ -25,7 +25,8 @@ Shaders/
 │   └── generate-previews.yml           # CI: auto-generate preview images
 │
 ├── scripts/
-│   └── generate-previews.js            # Playwright + Sharp preview capture script
+│   ├── generate-previews.js            # Playwright + Sharp preview capture script
+│   └── strip-modal-boilerplate.py      # One-time script: removed modal HTML/JS from all shader files
 │
 └── atmospheric-hero-shaders/           # Main content directory
     ├── index.html                      # Gallery page (card grid of all shaders)
@@ -40,7 +41,7 @@ Shaders/
 
 ---
 
-## Shader Collection (21 shaders, 20 registered)
+## Shader Collection (21 shaders)
 
 ### Smoke and Fog
 | Shader | Slug | Description |
@@ -81,7 +82,7 @@ Shaders/
 | Shader | Slug | Description |
 |--------|------|-------------|
 | Star Field | `starfield` | Twinkling stars, Milky Way, diffraction spikes |
-| Event Horizon | `event-horizon` | Black hole with accretion rings, debris field, photon rim (**not yet registered in shaders.json or index.html**) |
+| Event Horizon | `event-horizon` | Black hole with accretion rings, debris field, photon rim |
 
 ---
 
@@ -91,6 +92,7 @@ Every shader HTML file follows the same pattern:
 
 ```
 <!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
 <html>
 <head>
   <meta charset/viewport>
@@ -105,7 +107,7 @@ Every shader HTML file follows the same pattern:
   <button class="view-code-link">View Code</button>
   <canvas id="glsl-canvas"></canvas>
   <div class="overlay"></div>
-  <div class="code-modal"><!-- Code viewer panel --></div>
+  <!-- No code-modal HTML — injected at runtime by ui.js -->
 
   <script id="vertex-shader" type="x-shader/x-vertex">
     // Vertex shader (passes UV coordinates)
@@ -119,6 +121,9 @@ Every shader HTML file follows the same pattern:
   <script>
     // WebGL setup, shader compilation, render loop
     // const params = { ... } for tweakable uniforms
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
   </script>
 </body>
 </html>
@@ -129,14 +134,24 @@ Key points:
 - Fragment shaders use `precision highp float`
 - Custom uniforms are defined in a `const params = { ... }` block
 - The `preview.html` renderer extracts these params for preview capture
+- MIT license comment header on line 2 of every shader file
 
 ---
 
 ## Shared UI System
 
 - **ui.css**: Design tokens (Plus Jakarta Sans font, color palette, spacing, radii, shadows) and component styles for back-link, view-code button, code modal, gallery cards
-- **ui.js**: Lucide icon injection and toolbar/code-modal behavior
-- **External dep**: Lucide icons via unpkg CDN
+- **ui.js**: All toolbar and modal logic — icon injection, modal shell injection, modal behavior (open/close/copy/Escape), iframe detection, Prism.js lazy-loading for syntax highlighting, footer injection
+- **External deps**: Lucide icons via unpkg CDN; Prism.js (v1.29.0) via cdnjs, lazy-loaded on first "View Code" click
+
+### ui.js responsibilities
+- `enhanceIconButton()` — injects Lucide SVG icons into toolbar buttons
+- `injectModalShell()` — creates the `.code-modal` DOM at runtime (marked `data-ui-injected` so it is stripped from the "View Code" source output)
+- `injectModalFooter()` — appends the copyright/license footer to the code panel
+- `initModalBehavior()` — wires up all modal event listeners; `getSource()` clones the document and removes `[data-ui-injected]` elements before serializing; calls `Prism.highlightElement()` after opening
+- `loadPrism()` — lazy-loads Prism CSS + JS from cdnjs on first modal open; `Prism.manual = true` disables auto-scan
+- `positionToolbarButtons()` — positions "View Code" button relative to "Back" button
+- iframe check in `enhanceToolbar()` — hides toolbar when shader is embedded in a preview iframe
 
 ### Design Tokens (from ui.css)
 - Font: Plus Jakarta Sans (400-800 weights)

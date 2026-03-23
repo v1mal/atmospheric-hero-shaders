@@ -326,7 +326,7 @@ p {
   align-items: center;
   justify-content: center;
   padding: var(--ui-space-6);
-  background: rgba(3, 5, 7, 0.76);
+  background: rgba(3, 5, 7, 0.45);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -364,7 +364,29 @@ p {
 
 .code-scroll {
   overflow: auto;
-  max-height: calc(min(82vh, 900px) - 66px);
+  max-height: calc(min(82vh, 900px) - 66px - 48px);
+}
+
+.code-panel-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 18px;
+  height: 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--ui-color-muted);
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+.code-panel-footer a {
+  color: var(--ui-color-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.code-panel-footer a:hover {
+  color: var(--ui-color-text);
 }
 
 .code-block {
@@ -378,6 +400,12 @@ p {
 
 .code-block code {
   display: block;
+}
+
+/* Neutralise Prism theme background so the panel background shows through */
+.code-block[class*="language-"],
+.code-block code[class*="language-"] {
+  background: transparent;
 }
 
 .preview-page .error {

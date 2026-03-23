@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -30,8 +31,6 @@
   <a class="back-link" href="./index.html">Back to Playground</a>
   <button class="view-code-link" type="button">View Code</button>
   <canvas id="glsl-canvas"></canvas>
-  <div class="code-modal" aria-hidden="true"><div class="code-panel"><div class="code-panel-header"><span>Shader Source</span><div class="code-panel-actions"><button class="code-button copy-code-button" type="button">Copy Code</button><button class="code-button close-code-button" type="button">Close</button></div></div><div class="code-scroll"><pre class="code-block"><code></code></pre></div></div></div>
-
   <script id="vertex-shader" type="x-shader/x-vertex">
     attribute vec2 a_position;
     varying vec2 v_uv;
@@ -176,28 +175,7 @@
       requestAnimationFrame(render);
     }
 
-    const backLink = document.querySelector(".back-link");
-    const viewCodeLink = document.querySelector(".view-code-link");
-    const codeModal = document.querySelector(".code-modal");
-    const codeElement = document.querySelector(".code-block code");
-    const copyCodeButton = document.querySelector(".copy-code-button");
-    const closeCodeButton = document.querySelector(".close-code-button");
-    function escapeHtml(value) { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
-    function getSource() { return "<!DOCTYPE html>\n" + document.documentElement.outerHTML; }
-    function openCodeModal() { codeElement.innerHTML = escapeHtml(getSource()); codeModal.classList.add("is-open"); codeModal.setAttribute("aria-hidden", "false"); }
-    function closeCodeModal() { codeModal.classList.remove("is-open"); codeModal.setAttribute("aria-hidden", "true"); }
-    viewCodeLink.addEventListener("click", openCodeModal);
-    closeCodeButton.addEventListener("click", closeCodeModal);
-    codeModal.addEventListener("click", (event) => { if (event.target === codeModal) closeCodeModal(); });
-    window.addEventListener("keydown", (event) => { if (event.key === "Escape") closeCodeModal(); });
-    copyCodeButton.addEventListener("click", async () => { await navigator.clipboard.writeText(getSource()); copyCodeButton.textContent = "Copied"; window.setTimeout(() => { copyCodeButton.textContent = "Copy Code"; }, 1200); });
     window.shaderControls = params;
-    if (window.self !== window.top) {
-      backLink.style.display = "none";
-      viewCodeLink.style.display = "none";
-    } else {
-      backLink.textContent = "← Back to Playground";
-    }
     window.addEventListener("resize", resize, { passive: true });
     requestAnimationFrame(render);
   </script>

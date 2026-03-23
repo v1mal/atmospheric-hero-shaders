@@ -1,5 +1,7 @@
 # Atmospheric Hero Shaders
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A small playground of lightweight GLSL/WebGL hero-section shaders for the web.
 
 The focus is on:

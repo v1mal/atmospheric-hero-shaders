@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -205,7 +206,39 @@
 
     </section>
   </main>
+
+  <footer class="page-footer">
+    <p>&copy; <span id="footer-year"></span> <a href="https://vimal.works/" target="_blank" rel="noopener">Vimal Kandoth</a></p>
+    <p>Released under the <a href="https://github.com/v1mal/atmospheric-hero-shaders/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a> &mdash; free to use, modify, and build on.</p>
+  </footer>
+
+  <style>
+    .page-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4rem;
+      padding: 2rem 1.5rem;
+      border-top: 1px solid rgba(220, 235, 238, 0.10);
+      color: var(--ui-color-muted);
+      font-size: 0.82rem;
+    }
+    .page-footer p {
+      margin: 0;
+    }
+    .page-footer a {
+      color: var(--ui-color-muted);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .page-footer a:hover {
+      color: var(--ui-color-text);
+    }
+  </style>
+
   <script>
+    document.getElementById("footer-year").textContent = new Date().getFullYear();
+
     for (const previewImage of document.querySelectorAll(".shader-card__preview[data-shader-slug]")) {
       previewImage.addEventListener("error", () => {
         const slug = previewImage.getAttribute("data-shader-slug");
