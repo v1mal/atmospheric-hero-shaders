@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sierpinski Carpet</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2  v_uv;
+    uniform vec2  u_resolution;
+    uniform float u_time;
+    uniform float u_zoomSpeed;
+    #define MAX_LEVELS 8
+
+    // The 5 fixed palette colors by index
+    vec3 paletteEntry(int idx) {
+      if (idx == 0) return vec3(1.000, 0.910, 0.000); // yellow
+      if (idx == 1) return vec3(1.000, 0.000, 0.000); // red
+      if (idx == 2) return vec3(0.000, 0.000, 1.000); // blue
+      if (idx == 3) return vec3(0.960, 0.960, 0.960); // white
+                    return vec3(0.235, 0.235, 0.235); // charcoal
+    }
+
+    // Returns the color for hole at depth i, offset by zoom progress s.
+    // As s goes 0→1, the palette rotates backward by one step so that the end of each
+    // zoom cycle has the exact color mapping of the start of the next — seamless loop.
+    vec3 levelColor(int i, float s) {
+      // fi shifts by -s: at s=0, fi=i (base colors); at s=1, fi=i-1 (shifted back one step)
+      float fi  = mod(float(i) - s, 5.0);
+      int   lo  = int(floor(fi));
+      int   hi  = int(mod(float(lo + 1), 5.0));
+      return mix(paletteEntry(lo), paletteEntry(hi), fract(fi));
+    }
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+    }
+
+    // Returns raw (pre-tonemap) carpet color for a given fragment coordinate.
+    // Extracted so we can call it multiple times for supersampling.
+    vec3 carpetSample(vec2 fragCoord) {
+      // Self-similar zoom — period is exactly ln(3): zooms one self-similarity level
+      // per cycle, then loops perfectly (bottom-left sub-carpet is identical to full carpet)
+      float LOG3    = log(3.0);
+      float zoomLog = mod(u_time * u_zoomSpeed, LOG3);
+      float zoom    = exp(zoomLog);
+      float s       = zoomLog / LOG3; // [0, 1] progress through one cycle
+
+      vec2 uv = (fragCoord - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
+
+      // Pan-zoom toward the bottom-left sub-carpet:
+      //   s=0, zoom=1 → full carpet [0,1]^2 fills the screen
+      //   s=1, zoom=3 → bottom-left sub-carpet [0,1/3]^2 fills the screen
+      // Those two views are identical by self-similarity, so the loop is seamless.
+      vec2 viewCenter = mix(vec2(0.0), vec2(-1.0 / 3.0, -1.0 / 3.0), s);
+      vec2 p = viewCenter + uv / zoom + 0.5; // p in carpet space [0, 1]^2
+
+      // Sierpinski carpet — iterative base-3 cell check (IQ Menger Sponge technique, 2D)
+      // At each level: scale by 3, extract 3x3 cell index, recurse into sub-cell.
+      // Center cell (index 1 in both x and y) is a removed square — a hole.
+      vec3 col = vec3(0.03, 0.03, 0.03); // carpet: near-black
+
+      for (int i = 0; i < MAX_LEVELS; i++) {
+        p     *= 3.0;
+        vec2 cell = floor(p);
+        p      = fract(p); // recurse: p is now position within sub-cell [0,1]^2
+
+        // Center cell has index 1 in both dimensions.
+        // 1.0 - abs(cell - 1.0): 1 if cell==1, <=0 otherwise — avoids float == comparison.
+        float cx = 1.0 - abs(cell.x - 1.0);
+        float cy = 1.0 - abs(cell.y - 1.0);
+
+        if (cx > 0.5 && cy > 0.5) {
+          col = levelColor(i, s);
+          break;
+        }
+      }
+
+      return col;
+    }
+
+    void main() {
+      // 2x2 supersampling — averages 4 sub-pixel samples to eliminate boundary aliasing.
+      // Fractal hole edges are hard (binary), so single-sample pixels right on a boundary
+      // oscillate between hole/non-hole colors as the zoom progresses, causing flicker.
+      // Averaging ±0.25px offsets smooths these transitions without blurring large features.
+      vec3 col  = carpetSample(gl_FragCoord.xy + vec2(-0.25, -0.25));
+           col += carpetSample(gl_FragCoord.xy + vec2( 0.25, -0.25));
+           col += carpetSample(gl_FragCoord.xy + vec2(-0.25,  0.25));
+           col += carpetSample(gl_FragCoord.xy + vec2( 0.25,  0.25));
+           col *= 0.25;
+
+      // Tonemap + gamma
+      col = aces(col * 1.1);
+      col = pow(col, vec3(1.0 / 2.2));
+
+      // Film grain
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      zoomSpeed: 0.15
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER,   document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition   = gl.getAttribLocation(program,  "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime       = gl.getUniformLocation(program, "u_time");
+    const uZoomSpeed  = gl.getUniformLocation(program, "u_zoomSpeed");
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime,       now * 0.001);
+      gl.uniform1f(uZoomSpeed,  params.zoomSpeed);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Julia Set</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    void main() {
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    uniform vec2  u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_orbitRadius;
+
+    #define MAX_ITER 256
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+    }
+
+    // Returns raw (pre-tonemap) color for a single Julia sample at the given fragment coordinate.
+    vec3 juliaSample(vec2 fragCoord, vec2 c) {
+      vec2 z = (fragCoord - 0.5 * u_resolution) / (min(u_resolution.x, u_resolution.y) * 0.62);
+
+      const float B = 256.0;
+      float n = 0.0;
+      for (int i = 0; i < MAX_ITER; i++) {
+        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > B * B) break;
+        n += 1.0;
+      }
+
+      if (dot(z, z) <= B * B) {
+        return vec3(0.02, 0.05, 0.22); // interior
+      }
+
+      // IQ smooth escape: eliminates hard iteration-count bands
+      float sn = n - log2(log2(dot(z, z))) + 4.0;
+
+      // Cyclic color bands: deep navy → sky blue → white → orange
+      float band = fract(sn * 0.018);
+      float s    = band * 4.0;
+
+      vec3 c0 = vec3(0.04, 0.08, 0.52); // deep navy
+      vec3 c1 = vec3(0.35, 0.62, 0.95); // sky blue
+      vec3 c2 = vec3(0.95, 0.97, 1.00); // white
+      vec3 c3 = vec3(0.92, 0.52, 0.06); // orange
+
+      vec3 col  = mix(c0,  c1, clamp(s,       0.0, 1.0));
+           col  = mix(col, c2, clamp(s - 1.0, 0.0, 1.0));
+           col  = mix(col, c3, clamp(s - 2.0, 0.0, 1.0));
+           col  = mix(col, c0, clamp(s - 3.0, 0.0, 1.0));
+      return col;
+    }
+
+    void main() {
+      // c orbits slowly around the Seahorse Valley base point — the set gently breathes
+      vec2 c = vec2(-0.7, 0.27) + u_orbitRadius * vec2(cos(u_time * u_speed), sin(u_time * u_speed));
+
+      // 2x2 supersampling — averages 4 sub-pixel samples to eliminate boundary flicker
+      vec3 col  = juliaSample(gl_FragCoord.xy + vec2(-0.25, -0.25), c);
+           col += juliaSample(gl_FragCoord.xy + vec2( 0.25, -0.25), c);
+           col += juliaSample(gl_FragCoord.xy + vec2(-0.25,  0.25), c);
+           col += juliaSample(gl_FragCoord.xy + vec2( 0.25,  0.25), c);
+           col *= 0.25;
+
+      // Tonemap + gamma
+      col = aces(col * 1.1);
+      col = pow(col, vec3(1.0 / 2.2));
+
+      // Film grain
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      speed:       0.3,
+      orbitRadius: 0.005
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER,   document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition    = gl.getAttribLocation(program,  "a_position");
+    const uResolution  = gl.getUniformLocation(program, "u_resolution");
+    const uTime        = gl.getUniformLocation(program, "u_time");
+    const uSpeed       = gl.getUniformLocation(program, "u_speed");
+    const uOrbitRadius = gl.getUniformLocation(program, "u_orbitRadius");
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution,  canvas.width, canvas.height);
+      gl.uniform1f(uTime,        now * 0.001);
+      gl.uniform1f(uSpeed,       params.speed);
+      gl.uniform1f(uOrbitRadius, params.orbitRadius);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

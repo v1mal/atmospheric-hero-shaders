@@ -1,3 +1,5 @@
 [
-  { "slug": "mandelbrot-zoom", "title": "Mandelbrot Zoom", "previewTime": 8.0 }
+  { "slug": "sierpinski-carpet", "title": "Sierpinski Carpet", "previewTime": 2.0 },
+  { "slug": "mandelbrot-zoom",   "title": "Mandelbrot Zoom",   "previewTime": 8.0 },
+  { "slug": "julia-set",         "title": "Julia Set",         "previewTime": 4.0 }
 ]

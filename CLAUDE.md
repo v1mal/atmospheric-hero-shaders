@@ -9,7 +9,7 @@ Collections live as sibling folders at the repo root. See `CONTEXT.md` for full 
 Current collections:
 - `atmospheric-hero-shaders/` — smoke, liquid, silk, aurora, deep space (21 shaders)
 - `gradient-shaders/` — animated gradient studies (2 shaders)
-- `fractal-universe/` — fractal and self-similar pattern studies (1 shader)
+- `fractal-universe/` — fractal and self-similar pattern studies (3 shaders)
 
 ---
 

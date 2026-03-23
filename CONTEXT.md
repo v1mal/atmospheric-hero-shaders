@@ -104,13 +104,15 @@ Fullscreen GLSL experiments exploring the boundary between darkness and luminanc
 | Star Field | `starfield` | Twinkling stars, Milky Way, diffraction spikes |
 | Event Horizon | `event-horizon` | Black hole with accretion rings, debris field, photon rim |
 
-### Fractal Universe (1 shader)
+### Fractal Universe (3 shaders)
 
 Self-similar patterns at every scale — seashells, coastlines, galaxies, and the infinite recursion that underlies all of nature.
 
 | Shader | Slug | Description |
 |--------|------|-------------|
+| Sierpinski Carpet | `sierpinski-carpet` | Recursive center-ninth removal with self-similar zoom loop and depth coloring |
 | Mandelbrot Zoom | `mandelbrot-zoom` | Infinitely looping dive into Seahorse Valley with iridescent color cycling |
+| Julia Set | `julia-set` | Connected Julia set at c=(-0.7, 0.27) with cyclic escape-time coloring and slow c orbit |
 
 ### Gradients (0 shaders)
 
