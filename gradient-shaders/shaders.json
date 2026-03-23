@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "slug": "prism-helix",
+    "title": "Prism Helix",
+    "previewTime": 4.0
+  },
+  {
+    "slug": "oklab-flow",
+    "title": "Oklab Flow",
+    "previewTime": 5.0
+  }
+]
