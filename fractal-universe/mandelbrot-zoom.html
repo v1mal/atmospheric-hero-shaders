@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mandelbrot Zoom</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000008;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2  v_uv;
+    uniform vec2  u_resolution;
+    uniform float u_time;
+    uniform float u_zoomSpeed;
+    uniform float u_colorSpeed;
+    uniform float u_spiralRate;
+
+    #define MAX_ITER 200
+    #define TAU 6.28318530718
+
+    // IQ cosine palette — vibrant iridescent hue cycling
+    vec3 palette(float t) {
+      vec3 a = vec3(0.5, 0.5, 0.5);
+      vec3 b = vec3(0.5, 0.5, 0.5);
+      vec3 c = vec3(1.0, 1.0, 0.5);
+      vec3 d = vec3(0.80, 0.90, 0.30);
+      return a + b * cos(TAU * (c * t + d));
+    }
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
+    vec3 aces(vec3 x) {
+      return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+    }
+
+    void main() {
+      // Seamlessly looping exponential zoom — exp(0)=1 to exp(log(50000))=50000
+      float maxLog = log(50000.0);
+      float zoomLog = mod(u_time * u_zoomSpeed, maxLog);
+      float zoom    = exp(zoomLog);
+
+      // Logarithmic spiral path: rotate proportional to ln(zoom)
+      // A logarithmic spiral satisfies r = a*e^(b*theta), so theta grows linearly with ln(r)
+      float angle = zoomLog * u_spiralRate;
+      float ca = cos(angle), sa = sin(angle);
+
+      // Map pixel to complex plane, centred on Seahorse Valley
+      vec2 target = vec2(-0.7436438870371587, 0.13182590420531196);
+      vec2 uv     = (gl_FragCoord.xy - 0.5 * u_resolution) / (min(u_resolution.x, u_resolution.y) * 0.5);
+      vec2 rotUV  = vec2(ca * uv.x - sa * uv.y, sa * uv.x + ca * uv.y);
+      vec2 c      = target + rotUV / zoom;
+
+      // Mandelbrot iteration — high escape radius for accurate smooth coloring
+      const float B = 256.0;
+      float n = 0.0;
+      vec2  z = vec2(0.0);
+      for (int i = 0; i < MAX_ITER; i++) {
+        z = vec2(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > B * B) break;
+        n += 1.0;
+      }
+
+      vec3  col;
+      float zz = dot(z, z);
+
+      if (zz > B * B) {
+        // Escaped — smooth iteration count (IQ msetsmooth formula)
+        float sn = n - log2(log2(zz)) + 4.0;
+        // t: sparse spacing avoids tight banding; animated phase = iridescent shimmer
+        float t = sn * 0.018 + u_time * u_colorSpeed;
+        col = palette(t);
+        // Subtle ripple tied to iteration depth
+        col *= 0.88 + 0.12 * sin(sn * 0.31);
+      } else {
+        // Interior: deep near-black with faint blue-purple tint
+        col = vec3(0.0, 0.005, 0.022);
+      }
+
+      // Tonemap + gamma
+      col = aces(col * 1.15);
+      col = pow(col, vec3(1.0 / 2.2));
+
+      // Film grain
+      col += (hash(gl_FragCoord.xy + fract(u_time) * 317.0) - 0.5) / 255.0;
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      zoomSpeed:  0.25,
+      colorSpeed: 0.08,
+      spiralRate: 0.5
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER,   document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,  1, -1, -1,  1,
+      -1,  1,  1, -1,  1,  1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition   = gl.getAttribLocation(program,  "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime       = gl.getUniformLocation(program, "u_time");
+    const uZoomSpeed  = gl.getUniformLocation(program, "u_zoomSpeed");
+    const uColorSpeed = gl.getUniformLocation(program, "u_colorSpeed");
+    const uSpiralRate = gl.getUniformLocation(program, "u_spiralRate");
+
+    function resize() {
+      const dpr    = Math.min(window.devicePixelRatio || 1, 2);
+      const width  = Math.floor(innerWidth  * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width  = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime,       now * 0.001);
+      gl.uniform1f(uZoomSpeed,  params.zoomSpeed);
+      gl.uniform1f(uColorSpeed, params.colorSpeed);
+      gl.uniform1f(uSpiralRate, params.spiralRate);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
