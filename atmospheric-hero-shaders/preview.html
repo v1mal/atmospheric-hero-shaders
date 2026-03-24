@@ -31,8 +31,27 @@
     window.__shaderPreviewReady = false;
 
     function fail(message) {
-      document.body.innerHTML = '<div class="error">' + message + "</div>";
-      throw new Error(message);
+      document.body.textContent = "";
+      const error = document.createElement("div");
+      error.className = "error";
+      error.textContent = String(message);
+      document.body.appendChild(error);
+      throw new Error(String(message));
+    }
+
+    function parsePreviewParams(source) {
+      const match = source.match(/const params = (\{[\s\S]*?\});/);
+      if (!match) return {};
+
+      const jsonish = match[1]
+        .replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":')
+        .replace(/,\s*([}\]])/g, "$1");
+
+      try {
+        return JSON.parse(jsonish);
+      } catch {
+        return {};
+      }
     }
 
     function createShader(type, source) {
@@ -98,8 +117,7 @@
       if (title) document.title = title.textContent.trim();
 
       const shaderScript = Array.from(doc.querySelectorAll("script")).find((script) => script.textContent.includes("const params ="));
-      const paramsMatch = shaderScript && shaderScript.textContent.match(/const params = (\{[\s\S]*?\});/);
-      const params = paramsMatch ? Function('"use strict"; return (' + paramsMatch[1] + ");")() : {};
+      const params = shaderScript ? parsePreviewParams(shaderScript.textContent) : {};
 
       const vertexSource = doc.getElementById("vertex-shader")?.textContent.trim();
       const fragmentSource = doc.getElementById("fragment-shader")?.textContent.trim();

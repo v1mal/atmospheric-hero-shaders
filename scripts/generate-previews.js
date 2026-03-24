@@ -9,6 +9,7 @@ const HOST = "127.0.0.1";
 const PORT = 4173;
 const VIEWPORT = { width: 1600, height: 1200 };
 const WEBP_QUALITY = 86;
+const VALID_NAME = /^[a-z0-9-]+$/;
 
 function parseArgs(argv) {
   const args = {
@@ -31,6 +32,12 @@ function parseArgs(argv) {
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+function assertValidName(value, label) {
+  if (!VALID_NAME.test(value)) {
+    throw new Error(`Invalid ${label}: ${value}`);
+  }
 }
 
 function exists(filePath) {
@@ -87,7 +94,11 @@ async function captureShader(browser, shader, { BASE_URL, PREVIEW_DIR, collectio
       await page.waitForFunction(() => window.__shaderPreviewReady === true, undefined, { timeout: 15000 });
     }
     const image = await page.screenshot({ type: "png" });
-    const outputPath = path.join(PREVIEW_DIR, `${shader.slug}.webp`);
+    const previewRoot = path.resolve(PREVIEW_DIR);
+    const outputPath = path.resolve(previewRoot, `${shader.slug}.webp`);
+    if (!outputPath.startsWith(`${previewRoot}${path.sep}`) && outputPath !== path.join(previewRoot, `${shader.slug}.webp`)) {
+      throw new Error(`Refusing to write outside preview directory for ${shader.slug}`);
+    }
     await writeWebp(image, outputPath);
     console.log(`Generated ${collection}/previews/${shader.slug}.webp`);
   } finally {
@@ -97,6 +108,10 @@ async function captureShader(browser, shader, { BASE_URL, PREVIEW_DIR, collectio
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  assertValidName(args.collection, "collection");
+  if (args.shader) {
+    assertValidName(args.shader, "shader slug");
+  }
 
   const PLAYGROUND_DIR = path.join(ROOT, args.collection);
   const PREVIEW_DIR = path.join(PLAYGROUND_DIR, "previews");
@@ -105,6 +120,9 @@ async function main() {
   const BASE_URL = `http://${HOST}:${PORT}/${args.collection}`;
 
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
+  for (const entry of manifest) {
+    assertValidName(entry.slug, "manifest shader slug");
+  }
   let shaders = manifest;
 
   if (args.shader) {
