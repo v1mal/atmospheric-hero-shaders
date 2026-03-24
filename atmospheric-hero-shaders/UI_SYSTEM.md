@@ -1,6 +1,6 @@
 # Atmospheric Shaders UI System
 
-This document describes the shared UI system for the shader playground and fullscreen shader pages in this root folder. The goal is to keep the playground visually consistent, lightweight, and easy to extend without reintroducing page-local chrome styles.
+This document describes the UI system used by the atmospheric collection. The collection now uses the repo-wide shared UI layer in `/shared`, while this file remains as collection-specific documentation for how that system is applied here.
 
 ## Scope
 
@@ -8,9 +8,9 @@ The shared UI system covers:
 
 - The gallery shell in `index.html`
 - The preview shell in `preview.html`
-- The fullscreen chrome in each shader page at the root
-- Shared styles in `ui.css`
-- Shared behavior in `ui.js`
+- The fullscreen chrome in each shader page in this collection
+- Shared styles in `../shared/ui.css`
+- Shared behavior in `../shared/ui.js`
 
 It does not control shader visuals, WebGL setup, uniforms, or fragment logic.
 
@@ -25,14 +25,14 @@ It does not control shader visuals, WebGL setup, uniforms, or fragment logic.
 
 ## Core Files
 
-- [`ui.css`](./ui.css): shared design tokens and component styles
-- [`ui.js`](./ui.js): shared icon injection and fullscreen toolbar positioning
-- [`index.html`](./index.html): gallery shell
-- [`preview.html`](./preview.html): lightweight iframe preview renderer
+- [`../shared/ui.css`](../shared/ui.css): repo-wide design tokens and component styles
+- [`../shared/ui.js`](../shared/ui.js): repo-wide icon injection, modal behavior, and toolbar positioning
+- [`index.html`](./index.html): atmospheric gallery shell
+- [`preview.html`](./preview.html): lightweight preview renderer for this collection
 
 ## Design Tokens
 
-The UI is built around CSS custom properties in `:root` inside this root folder.
+The UI is built around CSS custom properties in `:root` inside the shared stylesheet.
 
 ### Typography Tokens
 

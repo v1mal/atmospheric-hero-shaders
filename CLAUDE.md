@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A growing collection of fullscreen WebGL/GLSL shader experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL, zero external runtime dependencies, and no build step.
+A growing collection of fullscreen WebGL/GLSL shader experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL and plain WebGL, with no build step.
 
 Collections live as sibling folders at the repo root. See `CONTEXT.md` for full project structure and `SHADERS_GUIDE.md` for cinematic GLSL techniques.
 
@@ -50,7 +50,7 @@ See `NEW_SHADER_WORKFLOW.md` for the full checklist. In brief:
 
 - Never introduce external runtime dependencies to shader files
 - All shared UI logic belongs in `shared/ui.js` and `shared/ui.css` — never inside a collection folder
-- Do not duplicate modal HTML or toolbar JS inside individual shader files — it is injected at runtime by `ui.js`
+- Prefer shared toolbar/modal behavior from `ui.js`. Some existing files still include legacy inline `.code-modal` markup, so match the collection's current pattern unless you are explicitly cleaning it up.
 - Shader UI paths must always be `../shared/ui.css` and `../shared/ui.js`
 - Follow the cinematic techniques in `SHADERS_GUIDE.md` (ACES tonemapping, film grain, inverse-square bloom, liquid distortion)
 - No em dashes in copy, descriptions, or UI text

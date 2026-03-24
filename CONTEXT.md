@@ -2,7 +2,7 @@
 
 ## Overview
 
-Shader Studies is a growing collection of fullscreen WebGL/GLSL shader experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL code, zero external dependencies beyond WebGL, and no build step required.
+Shader Studies is a growing collection of fullscreen WebGL/GLSL shader experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL and plain WebGL, with no build step required.
 
 **Live site:** shaders.vimal.works (GitHub Pages with custom domain)
 **Repository:** github.com/v1mal/atmospheric-hero-shaders
@@ -126,9 +126,14 @@ Self-similar patterns at every scale — seashells, coastlines, galaxies, and th
 | Julia Set | `julia-set` | Connected Julia set at c=(-0.7, 0.27) with cyclic escape-time coloring and slow c orbit |
 | Plasma Threads | `plasma-threads` | Three logarithmic spiral attractors rendered as glowing neon fibers via analytical flow-field level sets |
 
-### Gradients (0 shaders)
+### Gradients (2 shaders)
 
 Animated WebGL gradient studies exploring color transitions, flow, and smooth generative motion.
+
+| Shader | Slug | Description |
+|--------|------|-------------|
+| Prism Helix | `prism-helix` | Chromatic RGB tunnel with 120-degree phase offsets |
+| Oklab Flow | `oklab-flow` | Perceptually uniform multicolor gradient with domain-warped motion |
 
 ### Organic Patterns (1 shader)
 
@@ -171,8 +176,7 @@ Every shader HTML file follows the same pattern regardless of collection:
   <a class="back-link" href="./index.html">Back to Playground</a>
   <button class="view-code-link">View Code</button>
   <canvas id="glsl-canvas"></canvas>
-  <div class="overlay"></div>
-  <!-- No code-modal HTML — injected at runtime by ui.js -->
+  <!-- Some files include inline .code-modal markup; newer files may let ui.js inject it -->
 
   <script id="vertex-shader" type="x-shader/x-vertex">
     // Vertex shader (passes UV coordinates)
@@ -201,6 +205,7 @@ Key points:
 - The `preview.html` renderer extracts these params for preview capture
 - MIT license comment header on line 2 of every shader file
 - UI paths are always `../shared/ui.css` and `../shared/ui.js` (one level up from the collection folder)
+- The repo currently contains both legacy inline modal markup and shared runtime-injected modal behavior via `ui.js`
 
 ---
 

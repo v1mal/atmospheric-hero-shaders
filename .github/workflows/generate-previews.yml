@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       collection:
-        description: "Collection to generate previews for (atmospheric-hero-shaders or gradient-shaders)"
+        description: "Collection to generate previews for"
         required: false
         default: "atmospheric-hero-shaders"
         type: string

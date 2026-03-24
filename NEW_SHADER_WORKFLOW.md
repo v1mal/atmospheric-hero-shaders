@@ -52,7 +52,7 @@ Add an entry to the collection's `shaders.json`:
 ## 4. Commit and Push
 
 ```bash
-cd /Users/vimal/Desktop/Shaders
+cd /Users/vimal/Desktop/shaders
 git add {collection}
 git commit -m "Add my-new-shader to {collection}"
 git push
@@ -73,7 +73,7 @@ git pull --rebase origin main
 ## Short Version
 
 ```bash
-cd /Users/vimal/Desktop/Shaders
+cd /Users/vimal/Desktop/shaders
 git add {collection}
 git commit -m "Add my-new-shader to {collection}"
 git push

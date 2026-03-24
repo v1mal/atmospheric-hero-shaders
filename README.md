@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-A growing collection of fullscreen WebGL/GLSL experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL, zero external runtime dependencies, and no build step.
+A growing collection of fullscreen WebGL/GLSL experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL and plain WebGL, with no build step required.
 
 **Live site:** [shaders.vimal.works](https://shaders.vimal.works)
 
@@ -40,6 +40,11 @@ Animated WebGL gradient studies exploring color, flow, and transition.
 
 - Prism Helix — chromatic RGB tunnel with 120-degree phase offsets
 - Oklab Flow — perceptually uniform multicolor gradient with domain-warped motion
+
+### Organic Patterns — 1 shader
+Reaction-diffusion and biological growth studies rendered in real time.
+
+- Coral Morphogenesis — Gray-Scott reaction-diffusion with iridescent thin-film coloration
 
 ---
 
@@ -81,7 +86,13 @@ Shaders/
 │   ├── shaders.json
 │   ├── previews/
 │   └── *.html
-└── gradient-shaders/               # 2 shaders
+├── gradient-shaders/               # 2 shaders
+│   ├── index.html
+│   ├── preview.html
+│   ├── shaders.json
+│   ├── previews/
+│   └── *.html
+└── organic-patterns/               # 1 shader
     ├── index.html
     ├── preview.html
     ├── shaders.json
