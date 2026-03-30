@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<!-- MIT License — Copyright (c) 2026 Vimal — https://github.com/v1mal/atmospheric-hero-shaders -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cool Bloom</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #274b6b;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="../shared/ui.css" />
+  <script defer src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="../shared/ui.js"></script>
+</head>
+<body>
+  <a class="back-link" href="./index.html">Back to Playground</a>
+  <button class="view-code-link" type="button">View Code</button>
+  <canvas id="glsl-canvas"></canvas>
+
+  <script id="vertex-shader" type="x-shader/x-vertex">
+    attribute vec2 a_position;
+    varying vec2 v_uv;
+    void main() {
+      v_uv = a_position * 0.5 + 0.5;
+      gl_Position = vec4(a_position, 0.0, 1.0);
+    }
+  </script>
+
+  <script id="fragment-shader" type="x-shader/x-fragment">
+    precision highp float;
+
+    varying vec2 v_uv;
+
+    uniform vec2 u_resolution;
+    uniform float u_time;
+    uniform float u_speed;
+    uniform float u_bend;
+    uniform float u_motion;
+
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+    }
+
+    vec3 aces(vec3 c) {
+      mat3 m1 = mat3(
+        0.59719, 0.07600, 0.02840,
+        0.35458, 0.90834, 0.13383,
+        0.04823, 0.01566, 0.83777
+      );
+      mat3 m2 = mat3(
+        1.60475, -0.10208, -0.00327,
+        -0.53108, 1.10813, -0.07276,
+        -0.07367, -0.00605, 1.07602
+      );
+      vec3 v = m1 * c;
+      vec3 a = v * (v + 0.0245786) - 0.000090537;
+      vec3 b = v * (0.983729 * v + 0.4329510) + 0.238081;
+      return clamp(m2 * (a / b), 0.0, 1.0);
+    }
+
+    void main() {
+      float mr = min(u_resolution.x, u_resolution.y);
+      vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution.xy) / mr;
+      float t = u_time * u_speed;
+
+      float d = -t * 0.48;
+      float a = 0.0;
+      for (float i = 0.0; i < 8.0; i += 1.0) {
+        a += cos(i * 0.86 - d - a * uv.y * 1.06);
+        d += sin((uv.x + uv.y * 0.22) * (i + 1.0) + a);
+      }
+      d += t * 0.34;
+
+      vec2 warp = uv;
+      warp.x += 0.10 * sin(d + uv.y * 2.0) * u_motion;
+      warp.y += 0.18 * cos(a + uv.x * 1.6) * u_bend;
+
+      vec3 deep = vec3(0.14, 0.26, 0.54);
+      vec3 cyan = vec3(0.52, 0.90, 0.98);
+      vec3 mint = vec3(0.56, 0.86, 0.66);
+      vec3 lime = vec3(0.44, 0.88, 0.30);
+      vec3 pale = vec3(0.88, 0.98, 0.92);
+
+      float body = 0.5 + 0.5 * cos(warp.x * 1.8 + d * 0.4);
+      float pool = 0.5 + 0.5 * sin(warp.y * 2.1 + a * 0.5);
+      vec3 color = mix(deep, cyan, smoothstep(0.16, 0.92, body));
+      color = mix(color, mint, smoothstep(0.28, 0.98, pool) * 0.44);
+
+      float greenFold = smoothstep(0.46, -0.04, abs(uv.x * 0.28 + uv.y - 0.06 + sin(d + uv.y * 2.9) * 0.2));
+      color = mix(color, lime, greenFold * 0.44);
+
+      float paleFold = smoothstep(0.52, -0.04, abs(uv.y + 0.08 - uv.x * 0.36 + cos(a * 0.82 + uv.x * 2.4) * 0.22));
+      color = mix(color, pale, paleFold * 0.38);
+
+      color = aces(color * 1.08);
+      float grain = hash(gl_FragCoord.xy + fract(t) * 157.0) * 0.012;
+      color += grain - 0.006;
+      gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("glsl-canvas");
+    const gl = canvas.getContext("webgl", { antialias: false, alpha: false });
+
+    const params = {
+      speed: 0.76,
+      bend: 1.65,
+      motion: 1.8
+    };
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    const program = gl.createProgram();
+    gl.attachShader(program, createShader(gl.VERTEX_SHADER, document.getElementById("vertex-shader").textContent.trim()));
+    gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, document.getElementById("fragment-shader").textContent.trim()));
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, 1, -1, -1, 1,
+      -1, 1, 1, -1, 1, 1
+    ]), gl.STATIC_DRAW);
+
+    const aPosition = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uSpeed = gl.getUniformLocation(program, "u_speed");
+    const uBend = gl.getUniformLocation(program, "u_bend");
+    const uMotion = gl.getUniformLocation(program, "u_motion");
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const width = Math.floor(innerWidth * dpr);
+      const height = Math.floor(innerHeight * dpr);
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        gl.viewport(0, 0, width, height);
+      }
+    }
+
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform1f(uSpeed, params.speed);
+      gl.uniform1f(uBend, params.bend);
+      gl.uniform1f(uMotion, params.motion);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+
+    window.shaderControls = params;
+    window.addEventListener("resize", resize, { passive: true });
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

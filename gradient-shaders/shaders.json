@@ -8,5 +8,45 @@
     "slug": "oklab-flow",
     "title": "Oklab Flow",
     "previewTime": 5.0
+  },
+  {
+    "slug": "mesh-drift",
+    "title": "Mesh Drift",
+    "previewTime": 4.8
+  },
+  {
+    "slug": "glass-sunset",
+    "title": "Glass Sunset",
+    "previewTime": 4.4
+  },
+  {
+    "slug": "iridescent-fold",
+    "title": "Iridescent Fold",
+    "previewTime": 4.0
+  },
+  {
+    "slug": "ember-sprint",
+    "title": "Ember Sprint",
+    "previewTime": 3.8
+  },
+  {
+    "slug": "cool-bloom",
+    "title": "Cool Bloom",
+    "previewTime": 4.2
+  },
+  {
+    "slug": "blush-wave",
+    "title": "Blush Wave",
+    "previewTime": 3.6
+  },
+  {
+    "slug": "golden-drift",
+    "title": "Golden Drift",
+    "previewTime": 4.0
+  },
+  {
+    "slug": "ultraviolet-orbit",
+    "title": "Ultraviolet Orbit",
+    "previewTime": 4.1
   }
 ]
