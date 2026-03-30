@@ -25,7 +25,30 @@ UI paths inside every shader file must be:
 <script defer src="../shared/ui.js"></script>
 ```
 
-## 2. Add a Gallery Card
+## 2. Choose a Post Profile
+
+Before wiring the shader into the gallery, classify its material/visual intent and choose the finishing profile that fits it best.
+
+Available profiles:
+- `minimalClean`
+- `softAtmospheric`
+- `cinematicGlow`
+- `printSurface`
+- `liquidGloss`
+
+Decision rule:
+- do **not** apply the same post stack to every shader
+- choose the profile based on the shader's material read and highlight structure
+- use `SHADERS_GUIDE.md` as the source of truth for profile selection
+
+Quick examples:
+- minimal gradients / clean spatial work → `minimalClean`
+- smoke / veil / soft luminous atmosphere → `softAtmospheric`
+- black holes / plasma / emissive cosmic work → `cinematicGlow`
+- geometric / poster / paper / gouache work → `printSurface`
+- glossy liquids / caustics / reflective fluid work → `liquidGloss`
+
+## 3. Add a Gallery Card
 
 Add a card to the collection's `index.html`:
 
@@ -33,7 +56,7 @@ Add a card to the collection's `index.html`:
 {collection}/index.html
 ```
 
-## 3. Add Preview Metadata
+## 4. Add Preview Metadata
 
 Add an entry to the collection's `shaders.json`:
 
@@ -49,7 +72,14 @@ Add an entry to the collection's `shaders.json`:
 }
 ```
 
-## 4. Commit and Push
+## 5. Visually Verify the Shader
+
+Before committing:
+- verify the chosen post profile improves the shader without changing its identity
+- check for washout, clipping, muddy bloom, banding, or lost edge detail
+- if the finish makes the shader worse, reduce it or switch profiles
+
+## 6. Commit and Push
 
 ```bash
 cd /Users/vimal/Desktop/shaders
@@ -58,11 +88,11 @@ git commit -m "Add my-new-shader to {collection}"
 git push
 ```
 
-## 5. Wait for Preview Generation
+## 7. Wait for Preview Generation
 
 Pushing to `main` automatically triggers the `Generate Shader Previews` GitHub Action for the collection that changed. It generates the `.webp` preview and commits it back to `main`.
 
-## 6. Pull the Bot Commit
+## 8. Pull the Bot Commit
 
 ```bash
 git pull --rebase origin main

@@ -57,6 +57,10 @@
       return fract(sin(n * 127.1) * 43758.5453);
     }
 
+    float hash2(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
     // Assign a color to a cell based on its ID and the current epoch.
     // ~8% red, ~6% blue, ~6% yellow, ~3% black, rest white.
     vec3 assignColor(float id, float epoch) {
@@ -168,6 +172,15 @@
       float line = smoothstep(w, 0.0, dLine - LINE_HW);
 
       vec3 col = mix(cellCol, BLACK, line);
+
+      // Print-surface finish: warm paper base, slight pigment tooth, matte desaturation
+      float grain = hash2(gl_FragCoord.xy * 0.9) * 0.05 - 0.025;
+      float pulp = hash2(floor(gl_FragCoord.xy * 0.25)) * 0.04 - 0.02;
+      float matte = 1.0 + grain + pulp;
+      col *= matte;
+
+      float lum = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(lum), 0.05);
 
       gl_FragColor = vec4(col, 1.0);
     }

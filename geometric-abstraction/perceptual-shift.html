@@ -47,6 +47,10 @@
       return fract(sin(n * 127.1) * 43758.5453);
     }
 
+    float hash2(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+
     void main() {
       vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution) / min(u_resolution.x, u_resolution.y);
       float t = u_time * u_speed;
@@ -63,8 +67,11 @@
       float numCols = numRows;                                     // 1:1 aspect
       float gridW = gridH;
 
+      vec3 paper = vec3(0.955, 0.948, 0.925);
+
       if (abs(p.x) > gridW || abs(p.y) > gridH) {
-        gl_FragColor = vec4(1.0);
+        float bgGrain = hash2(gl_FragCoord.xy * 0.8) * 0.04 - 0.02;
+        gl_FragColor = vec4(paper * (1.0 + bgGrain), 1.0);
         return;
       }
 
@@ -107,7 +114,15 @@
       float cg = mod(floor(wgxG) + floor(gy), 2.0);
       float cb = mod(floor(wgxB) + floor(gy), 2.0);
 
-      gl_FragColor = vec4(cr, cg, cb, 1.0);
+      vec3 col = vec3(cr, cg, cb);
+      float grain = hash2(gl_FragCoord.xy) * 0.05 - 0.025;
+      float fiber = hash2(vec2(floor(gl_FragCoord.x * 0.35), floor(gl_FragCoord.y * 2.2))) * 0.025 - 0.0125;
+      col *= 1.0 + grain + fiber;
+
+      float lum = dot(col, vec3(0.299, 0.587, 0.114));
+      col = mix(col, vec3(lum), 0.06);
+
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
   </script>
 

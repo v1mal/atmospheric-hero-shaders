@@ -199,6 +199,13 @@
       
       // Shadow anchoring to ensure the background maps correctly to our project parameters
       cOut = max(cOut, mix(u_shadowColor, vec3(0.0), 0.5));
+
+      float luma = dot(cOut, vec3(0.2126, 0.7152, 0.0722));
+      cOut = mix(vec3(luma), cOut, 1.04);
+      cOut = (cOut - 0.5) * 1.04 + 0.5;
+
+      float vignette = smoothstep(1.42, 0.18, length(uv * vec2(0.88, 0.92)));
+      cOut *= mix(1.0, vignette, 0.18);
       
       // Cinematic Film Grain
       float grain = hash(uv * 1000.0 + t) * 0.04;
