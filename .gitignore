@@ -8,5 +8,8 @@ package-lock.json
 dist/
 coverage/
 
+/.preview-artifacts/
+/.tmp-preview-captures/
+
 AGENTS.md
 CONTEXT.md

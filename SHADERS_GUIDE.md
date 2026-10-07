@@ -89,9 +89,9 @@ Avoid:
 - strong contrast shaping
 
 Current examples:
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/void-levitation.html`
-- `/Users/vimal/Desktop/shaders/gradient-shaders/oklab-flow.html`
-- `/Users/vimal/Desktop/shaders/gradient-shaders/prism-helix.html`
+- `atmospheric-hero-shaders/void-levitation.html`
+- `gradient-shaders/oklab-flow.html`
+- `gradient-shaders/prism-helix.html`
 
 ### 2. `softAtmospheric`
 Use for:
@@ -112,12 +112,12 @@ Avoid:
 - aggressive saturation
 
 Current examples:
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/extinguish-smoke.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/veil-drift.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/glass-veil.html`
+- `atmospheric-hero-shaders/extinguish-smoke.html`
+- `atmospheric-hero-shaders/veil-drift.html`
+- `atmospheric-hero-shaders/glass-veil.html`
 
 Special case:
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/aurora-borealis.html` should stay at the very light end of this profile. The full cinematic stack washed it out.
+- `atmospheric-hero-shaders/aurora-borealis.html` should stay at the very light end of this profile. The full cinematic stack washed it out.
 
 ### 3. `cinematicGlow`
 Use for:
@@ -138,9 +138,9 @@ Avoid:
 - lifting diffuse nebula mass too much
 
 Current examples:
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/event-horizon.html`
-- `/Users/vimal/Desktop/shaders/fractal-universe/spectral-attractor.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/nexus-silk.html`
+- `atmospheric-hero-shaders/event-horizon.html`
+- `fractal-universe/spectral-attractor.html`
+- `atmospheric-hero-shaders/nexus-silk.html`
 
 ### 4. `printSurface`
 Use for:
@@ -160,10 +160,10 @@ Avoid:
 - softening hard edges
 
 Current examples:
-- `/Users/vimal/Desktop/shaders/geometric-abstraction/homage-to-the-square.html`
-- `/Users/vimal/Desktop/shaders/geometric-abstraction/metaesquema.html`
-- `/Users/vimal/Desktop/shaders/geometric-abstraction/mondrian.html`
-- `/Users/vimal/Desktop/shaders/geometric-abstraction/perceptual-shift.html`
+- `geometric-abstraction/homage-to-the-square.html`
+- `geometric-abstraction/metaesquema.html`
+- `geometric-abstraction/mondrian.html`
+- `geometric-abstraction/perceptual-shift.html`
 
 ### 5. `liquidGloss`
 Use for:
@@ -184,10 +184,10 @@ Avoid:
 - haze that hides liquid structure
 
 Current examples:
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/ocean-labs.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/obsidian-tide.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/gilded-current.html`
-- `/Users/vimal/Desktop/shaders/atmospheric-hero-shaders/midnight-pool.html`
+- `atmospheric-hero-shaders/ocean-labs.html`
+- `atmospheric-hero-shaders/obsidian-tide.html`
+- `atmospheric-hero-shaders/gilded-current.html`
+- `atmospheric-hero-shaders/midnight-pool.html`
 
 ---
 

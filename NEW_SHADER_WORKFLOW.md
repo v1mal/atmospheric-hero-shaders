@@ -83,8 +83,9 @@ Before committing:
 
 ## 6. Commit and Push
 
+Run these commands from the repository root after the changes have been reviewed and approved:
+
 ```bash
-cd /Users/vimal/Desktop/shaders
 git add {collection}
 git commit -m "Add my-new-shader to {collection}"
 git push
@@ -104,8 +105,9 @@ git pull --rebase origin main
 
 ## Short Version
 
+From the repository root, after review and approval:
+
 ```bash
-cd /Users/vimal/Desktop/shaders
 git add {collection}
 git commit -m "Add my-new-shader to {collection}"
 git push

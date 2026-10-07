@@ -28,7 +28,7 @@ It does not control shader visuals, WebGL setup, uniforms, or fragment logic.
 - [`../shared/ui.css`](../shared/ui.css): repo-wide design tokens and component styles
 - [`../shared/ui.js`](../shared/ui.js): repo-wide icon injection, modal behavior, and toolbar positioning
 - [`index.html`](./index.html): atmospheric gallery shell
-- [`preview.html`](./preview.html): lightweight preview renderer for this collection
+- [`preview.html`](./preview.html): entry point for the shared full-page preview loader
 
 ## Design Tokens
 
@@ -316,15 +316,16 @@ Characteristics:
 - Shared typography system
 - Responsive card grid
 - Cards link to fullscreen shader pages in the root folder
-- Card previews use the lightweight preview renderer in `preview.html`
+- Card previews use generated WebP thumbnails
+- If a thumbnail fails to load, its card falls back to `preview.html`
 
 ### Preview Page
 
-`preview.html` is a lightweight rendering surface for gallery cards in this root folder.
+`preview.html` loads the original shader page in a fullscreen iframe through `../shared/preview.js`. The injected `../shared/preview-runtime.js` controls capture timing and seeded variation.
 
 Characteristics:
 
-- Canvas-only preview rendering
+- Full shader rendering, including every uniform and post-processing pass
 - No fullscreen toolbar
 - No modal chrome
 - Shared background and error styling
@@ -347,7 +348,7 @@ These pages rely on the shared UI system rather than page-local chrome styles.
 - Avoid serif fonts and per-page typography overrides
 - Avoid adding wrappers around the fullscreen buttons
 - Avoid duplicating toolbar or modal styles inside individual shader pages
-- Keep gallery previews lightweight by using `preview.html`
+- Use generated WebPs for gallery previews and `preview.html` as the fallback
 
 ## Adding New UI Pieces
 

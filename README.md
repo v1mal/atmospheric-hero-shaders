@@ -4,7 +4,7 @@
 
 A growing collection of fullscreen WebGL/GLSL experiments organised into themed collections. Each shader is a single self-contained HTML file with embedded GLSL and plain WebGL, with no build step required.
 
-**Live site:** [shaders.vimal.works](https://shaders.vimal.works)
+**Live site:** [v1mal.github.io/atmospheric-hero-shaders](https://v1mal.github.io/atmospheric-hero-shaders/)
 
 ---
 

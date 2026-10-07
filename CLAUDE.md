@@ -6,12 +6,8 @@ A growing collection of fullscreen WebGL/GLSL shader experiments organised into 
 
 Collections live as sibling folders at the repo root. See `CONTEXT.md` for full project structure and `SHADERS_GUIDE.md` for cinematic GLSL techniques.
 
-Current collections:
-- `atmospheric-hero-shaders/` — smoke, liquid, silk, aurora, deep space (21 shaders)
-- `gradient-shaders/` — animated gradient studies (2 shaders)
-- `fractal-universe/` — fractal and self-similar pattern studies (4 shaders)
-- `geometric-abstraction/` — abstract art-inspired geometric studies (4 shaders)
-- `organic-patterns/` — reaction-diffusion and biological growth studies (1 shader)
+Current collections and shader counts are maintained in `CONTEXT.md` and each
+collection's `shaders.json`. Do not duplicate counts in this file.
 
 ---
 
