@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
+const { changedFiles, selectChangedShaders } = require("./preview-selection");
 const { chromium } = require("playwright");
 const sharp = require("sharp");
 
@@ -16,7 +17,9 @@ function parseArgs(argv) {
     all: false,
     force: false,
     shader: null,
-    collection: "atmospheric-hero-shaders"
+    collection: "atmospheric-hero-shaders",
+    changedFrom: null,
+    changedTo: "HEAD"
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -25,6 +28,8 @@ function parseArgs(argv) {
     if (value === "--force") args.force = true;
     if (value === "--shader") args.shader = argv[index + 1] || null;
     if (value === "--collection") args.collection = argv[index + 1] || args.collection;
+    if (value === "--changed-from") args.changedFrom = argv[index + 1] || null;
+    if (value === "--changed-to") args.changedTo = argv[index + 1] || "HEAD";
   }
 
   return args;
@@ -80,19 +85,21 @@ async function captureShader(browser, shader, { BASE_URL, PREVIEW_DIR, collectio
   });
 
   try {
-    if (shader.direct) {
-      // Multi-pass shaders (e.g. ping-pong simulations) cannot be rendered
-      // through preview.html. Load the shader HTML directly and wait for
-      // the simulation to reach the desired time before capturing.
-      const url = `${BASE_URL}/${encodeURIComponent(shader.slug)}.html`;
-      await page.goto(url, { waitUntil: "networkidle" });
-      const waitMs = (shader.previewTime || 4.0) * 1000;
-      await page.waitForTimeout(waitMs);
-    } else {
-      const url = `${BASE_URL}/preview.html?shader=${encodeURIComponent(shader.slug)}&capture=1&t=${encodeURIComponent(shader.previewTime || 4.0)}`;
-      await page.goto(url, { waitUntil: "networkidle" });
-      await page.waitForFunction(() => window.__shaderPreviewReady === true, undefined, { timeout: 15000 });
-    }
+    // Rendering is self-contained. Avoid remote font/icon latency during capture.
+    await page.route(/^https?:\/\//, (route) => {
+      if (new URL(route.request().url()).origin === new URL(BASE_URL).origin) return route.continue();
+      return route.abort();
+    });
+    const time = shader.previewTime ?? 4.0;
+    const url = `${BASE_URL}/preview.html?shader=${encodeURIComponent(shader.slug)}&capture=1&t=${encodeURIComponent(time)}`;
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForFunction(
+      () => window.__shaderPreviewReady === true || window.__shaderPreviewError,
+      undefined,
+      { timeout: Math.max(15000, time * 1000 + 15000) }
+    );
+    const error = await page.evaluate(() => window.__shaderPreviewError);
+    if (error) throw new Error(`${shader.slug}: ${error}`);
     const image = await page.screenshot({ type: "png" });
     const previewRoot = path.resolve(PREVIEW_DIR);
     const outputPath = path.resolve(previewRoot, `${shader.slug}.webp`);
@@ -116,7 +123,6 @@ async function main() {
   const PLAYGROUND_DIR = path.join(ROOT, args.collection);
   const PREVIEW_DIR = path.join(PLAYGROUND_DIR, "previews");
   const MANIFEST_PATH = path.join(PLAYGROUND_DIR, "shaders.json");
-  const TEMP_DIR = path.join(ROOT, ".tmp-preview-captures");
   const BASE_URL = `http://${HOST}:${PORT}/${args.collection}`;
 
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
@@ -132,7 +138,10 @@ async function main() {
     }
   }
 
-  if (!args.force) {
+  if (args.changedFrom) {
+    shaders = selectChangedShaders(shaders, args.collection,
+      changedFiles(ROOT, args.changedFrom, args.changedTo), PREVIEW_DIR);
+  } else if (!args.force) {
     shaders = shaders.filter((entry) => args.all || !exists(path.join(PREVIEW_DIR, `${entry.slug}.webp`)));
   }
 
@@ -142,7 +151,6 @@ async function main() {
   }
 
   ensureDir(PREVIEW_DIR);
-  ensureDir(TEMP_DIR);
 
   const server = startServer();
   try {
@@ -157,7 +165,6 @@ async function main() {
     }
   } finally {
     server.kill("SIGTERM");
-    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
   }
 }
 

@@ -72,6 +72,8 @@ Add an entry to the collection's `shaders.json`:
 }
 ```
 
+For a stateful simulation, add `"direct": true` so capture runs real warm-up frames. Other shaders are captured at a fixed animation time, including their complete post-processing pipeline.
+
 ## 5. Visually Verify the Shader
 
 Before committing:
@@ -90,7 +92,7 @@ git push
 
 ## 7. Wait for Preview Generation
 
-Pushing to `main` automatically triggers the `Generate Shader Previews` GitHub Action for the collection that changed. It generates the `.webp` preview and commits it back to `main`.
+Pushing to `main` automatically triggers the `Generate Shader Previews` GitHub Action. It checks the whole push, refreshes changed shaders even if their WebPs already exist, and commits all generated previews together. Manifest and preview-page changes refresh the collection; shared UI, renderer, and generator changes refresh all collections.
 
 ## 8. Pull the Bot Commit
 
@@ -115,4 +117,4 @@ git pull --rebase origin main
 
 ## Adding a New Collection
 
-See the "Adding a New Collection" section in `CONTEXT.md` for the full checklist.
+Load `../shared/ui.css`, Lucide, and `../shared/ui.js` in the new gallery head. Add collection links to every gallery, add a hub card with the manifest count, add the collection to the preview CI matrix and commit-job collection list, and update `CONTEXT.md`.

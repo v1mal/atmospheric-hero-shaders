@@ -14,14 +14,18 @@ on:
       - "geometric-abstraction/shaders.json"
       - "organic-patterns/*.html"
       - "organic-patterns/shaders.json"
-      - "scripts/generate-previews.js"
+      - "shared/**"
+      - "scripts/**"
+      - "package.json"
+      - ".github/workflows/generate-previews.yml"
   workflow_dispatch:
     inputs:
       collection:
         description: "Collection to generate previews for"
         required: false
         default: "atmospheric-hero-shaders"
-        type: string
+        type: choice
+        options: [atmospheric-hero-shaders, gradient-shaders, fractal-universe, geometric-abstraction, organic-patterns]
       shader:
         description: "Optional shader slug to generate"
         required: false
@@ -33,7 +37,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   generate:
@@ -42,25 +46,37 @@ jobs:
       matrix:
         collection: [atmospheric-hero-shaders, gradient-shaders, fractal-universe, geometric-abstraction, organic-patterns]
       fail-fast: false
-
     steps:
-      - name: Checkout
+      - name: Checkout event revision
         uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for relevant changes
         id: changed
+        env:
+          EVENT: ${{ github.event_name }}
+          COLLECTION: ${{ matrix.collection }}
+          REQUESTED_COLLECTION: ${{ inputs.collection }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ inputs.collection }}" = "${{ matrix.collection }}" ]; then
-              echo "run=true" >> $GITHUB_OUTPUT
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$REQUESTED_COLLECTION" = "$COLLECTION" ]; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
             else
-              echo "run=false" >> $GITHUB_OUTPUT
+              echo "run=false" >> "$GITHUB_OUTPUT"
             fi
+          elif [[ "$BEFORE" =~ ^0+$ ]] || { ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null && ! git fetch origin "$BEFORE"; }; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "refresh_all=true" >> "$GITHUB_OUTPUT"
           else
-            git diff --name-only HEAD~1 HEAD | grep -q "^${{ matrix.collection }}/" && echo "run=true" >> $GITHUB_OUTPUT || echo "run=false" >> $GITHUB_OUTPUT
+            git diff --name-only "$BEFORE" "$AFTER" > "$RUNNER_TEMP/preview-changes"
+            if grep -Eq "^($COLLECTION/|shared/|scripts/|package\.json$|\.github/workflows/generate-previews\.yml$)" "$RUNNER_TEMP/preview-changes"; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "run=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Setup Node
@@ -73,35 +89,103 @@ jobs:
         if: steps.changed.outputs.run == 'true'
         run: npm install
 
+      - name: Check preview selection
+        if: steps.changed.outputs.run == 'true'
+        run: npm test
+
       - name: Install Playwright Chromium
         if: steps.changed.outputs.run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Generate previews
         if: steps.changed.outputs.run == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          COLLECTION: ${{ matrix.collection }}
+          SHADER: ${{ inputs.shader }}
+          FORCE: ${{ inputs.force }}
+          REFRESH_ALL: ${{ steps.changed.outputs.refresh_all }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
-          if [ -n "${{ inputs.shader }}" ] && [ "${{ inputs.force }}" = "true" ]; then
-            npm run generate-previews -- --collection ${{ matrix.collection }} --shader "${{ inputs.shader }}" --force
-          elif [ -n "${{ inputs.shader }}" ]; then
-            npm run generate-previews -- --collection ${{ matrix.collection }} --shader "${{ inputs.shader }}"
-          elif [ "${{ inputs.force }}" = "true" ]; then
-            npm run generate-previews -- --collection ${{ matrix.collection }} --all --force
+          args=(--collection "$COLLECTION")
+          if [ "$EVENT" = "push" ]; then
+            if [ "$REFRESH_ALL" = "true" ]; then
+              args+=(--all --force)
+            else
+              args+=(--changed-from "$BEFORE" --changed-to "$AFTER")
+            fi
           else
-            npm run generate-previews -- --collection ${{ matrix.collection }}
+            if [ -n "$SHADER" ]; then args+=(--shader "$SHADER"); fi
+            if [ "$FORCE" = "true" ]; then args+=(--force); fi
           fi
+          npm run generate-previews -- "${args[@]}"
+
+      - name: Stage preview artifacts with collection paths
+        if: steps.changed.outputs.run == 'true'
+        env:
+          COLLECTION: ${{ matrix.collection }}
+        run: |
+          mkdir -p ".preview-artifacts/$COLLECTION"
+          cp -R "$COLLECTION/previews" ".preview-artifacts/$COLLECTION/"
 
       - name: Upload preview artifacts
         if: steps.changed.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: shader-previews-${{ matrix.collection }}
-          path: ${{ matrix.collection }}/previews
+          path: .preview-artifacts/
+          if-no-files-found: error
 
-      - name: Commit generated previews
-        if: steps.changed.outputs.run == 'true'
+  commit:
+    needs: generate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout event revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download previews from every collection
+        uses: actions/download-artifact@v4
+        with:
+          pattern: shader-previews-*
+          merge-multiple: true
+          path: .preview-artifacts
+
+      - name: Commit generated previews together
+        env:
+          EVENT_SHA: ${{ github.sha }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ${{ matrix.collection }}/previews
-          git diff --cached --quiet || git commit -m "Generate shader previews [${{ matrix.collection }}]"
-          git push origin HEAD:main
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout --detach origin/main
+            for collection in atmospheric-hero-shaders gradient-shaders fractal-universe geometric-abstraction organic-patterns; do
+              if [ ! -d ".preview-artifacts/$collection/previews" ]; then continue; fi
+              # A newer run will capture source changes made after this event.
+              if [ -n "$(git diff --name-only "$EVENT_SHA" origin/main -- "$collection/preview.html" "$collection/shaders.json" shared/ scripts/ package.json .github/workflows/generate-previews.yml)" ]; then
+                echo "Skipping outdated previews for $collection"
+                continue
+              fi
+              mkdir -p "$collection/previews"
+              for preview in ".preview-artifacts/$collection/previews/"*.webp; do
+                if [ ! -f "$preview" ]; then continue; fi
+                slug="$(basename "$preview" .webp)"
+                if [ -n "$(git diff --name-only "$EVENT_SHA" origin/main -- "$collection/$slug.html")" ]; then
+                  echo "Skipping outdated preview for $collection/$slug"
+                  continue
+                fi
+                cp "$preview" "$collection/previews/$slug.webp"
+              done
+              git add "$collection/previews"
+            done
+            if git diff --cached --quiet; then exit 0; fi
+            git commit -m "Generate shader previews"
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo "Unable to push previews after three attempts" >&2
+          exit 1

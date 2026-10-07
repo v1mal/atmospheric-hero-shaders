@@ -10,7 +10,7 @@ A growing collection of fullscreen WebGL/GLSL experiments organised into themed 
 
 ## Collections
 
-### Atmospheric — 21 shaders
+### Atmospheric - 21 shaders
 Smoke, liquid, silk, aurora, and deep space. Fullscreen GLSL studies exploring the boundary between darkness and luminance.
 
 - Smoke and fog studies (Extinguish Smoke, Veil Drift, Linen Flow)
@@ -19,32 +19,41 @@ Smoke, liquid, silk, aurora, and deep space. Fullscreen GLSL studies exploring t
 - Geometric and flow (Satin Drape, Aurora Borealis, Void Levitation, Nucleus Drift, Helix Void, Helix Core, Blue Vortex, Nexus Silk)
 - Celestial (Star Field, Event Horizon)
 
-### Fractal Universe — 4 shaders
+### Fractal Universe - 5 shaders
 Self-similar structures found across nature, mathematics, and perception.
 
-- Sierpinski Carpet — recursive center-ninth removal with self-similar zoom loop
-- Mandelbrot Zoom — infinitely looping spiral dive into the Seahorse Valley
-- Julia Set — connected Julia set with cyclic escape-time coloring and slow c orbit
-- Plasma Threads — three logarithmic spiral attractors as glowing neon fibers
+- Sierpinski Carpet - recursive center-ninth removal with self-similar zoom loop
+- Mandelbrot Zoom - infinitely looping spiral dive into the Seahorse Valley
+- Julia Set - connected Julia set with cyclic escape-time coloring and slow c orbit
+- Plasma Threads - three logarithmic spiral attractors as glowing neon fibers
+- Spectral Attractor - orbiting luminous filaments with bloom and cinematic finishing
 
-### Geometric Abstraction — 4 shaders
+### Geometric Abstraction - 4 shaders
 Hard edges, primary colors, and structured composition inspired by the pioneers of abstract art.
 
-- Mondrian — asymmetric grid of black lines and primary-colored rectangles, randomized on every refresh
-- Metaesquema — grid of monochromatic rectangles with mirrored rotation, inspired by Helio Oiticica's gouache drawings
-- Perceptual Shift — warped checkerboard inspired by Bridget Riley's Movement in Squares, with subtle chromatic fringing
-- Homage to the Square — four nested squares in Josef Albers' proportional system with slow palette crossfade
+- Mondrian - asymmetric grid of black lines and primary-colored rectangles, randomized on every refresh
+- Metaesquema - grid of monochromatic rectangles with mirrored rotation, inspired by Helio Oiticica's gouache drawings
+- Perceptual Shift - warped checkerboard inspired by Bridget Riley's Movement in Squares, with subtle chromatic fringing
+- Homage to the Square - four nested squares in Josef Albers' proportional system with slow palette crossfade
 
-### Gradients — 2 shaders
+### Gradients - 10 shaders
 Animated WebGL gradient studies exploring color, flow, and transition.
 
-- Prism Helix — chromatic RGB tunnel with 120-degree phase offsets
-- Oklab Flow — perceptually uniform multicolor gradient with domain-warped motion
+- Prism Helix - chromatic RGB tunnel with 120-degree phase offsets
+- Oklab Flow - perceptually uniform multicolor gradient with domain-warped motion
+- Mesh Drift - layered Oklab blending with drifting chroma seams
+- Glass Sunset - warm-to-cool refraction with glass distortion
+- Iridescent Fold - a translucent fold with a chromatic edge sweep
+- Ember Sprint - molten red-orange folds and a bright flare seam
+- Cool Bloom - teal-blue-green displacement and flowing folds
+- Blush Wave - pink and magenta folds with creamy highlights
+- Golden Drift - amber-gold liquid with luminous central heat
+- Ultraviolet Orbit - rotating violet light around a dark core
 
-### Organic Patterns — 1 shader
+### Organic Patterns - 1 shader
 Reaction-diffusion and biological growth studies rendered in real time.
 
-- Coral Morphogenesis — Gray-Scott reaction-diffusion with iridescent thin-film coloration
+- Coral Morphogenesis - Gray-Scott reaction-diffusion with iridescent thin-film coloration
 
 ---
 
@@ -64,17 +73,19 @@ Open `http://127.0.0.1:4173/` for the hub, or open any individual shader HTML fi
 
 ```
 Shaders/
-├── index.html                      # Hub — links to all collections
+├── index.html                      # Hub - links to all collections
 ├── shared/
 │   ├── ui.css                      # Design tokens and component styles
-│   └── ui.js                       # Toolbar, modal, and icon logic
+│   ├── ui.js                       # Toolbar, modal, and icon logic
+│   ├── preview.js                  # Full shader preview loader
+│   └── preview-runtime.js          # Capture timing and seeded variation
 ├── atmospheric-hero-shaders/       # 21 shaders
 │   ├── index.html
 │   ├── preview.html
 │   ├── shaders.json
 │   ├── previews/
 │   └── *.html
-├── fractal-universe/               # 4 shaders
+├── fractal-universe/               # 5 shaders
 │   ├── index.html
 │   ├── preview.html
 │   ├── shaders.json
@@ -86,7 +97,7 @@ Shaders/
 │   ├── shaders.json
 │   ├── previews/
 │   └── *.html
-├── gradient-shaders/               # 2 shaders
+├── gradient-shaders/               # 10 shaders
 │   ├── index.html
 │   ├── preview.html
 │   ├── shaders.json
@@ -106,17 +117,21 @@ Each shader file is fully self-contained: vertex shader, fragment shader, WebGL 
 
 ## Preview Generation
 
-Preview thumbnails are auto-generated by GitHub Actions on every push. Each collection's `shaders.json` defines the `slug` and `previewTime` (seconds into the animation to capture). Playwright opens each shader in headless Chromium, Sharp converts the screenshot to WebP, and the bot commits the result back to `main`.
+Preview thumbnails are generated by GitHub Actions for relevant pushes to `main`. The full push range selects changed shaders, even when their thumbnails already exist. Manifest or preview-page changes refresh that collection; shared renderer, UI, or generator changes refresh all collections. Matrix jobs upload their previews, and one job commits them together, retrying if `main` advances and skipping captures whose source has since changed.
+
+Each collection's `shaders.json` defines the `slug` and `previewTime` (seconds into the animation to capture). The shared preview loader executes the original HTML page, including its uniforms and all rendering passes. Captures use a fixed animation time and seeded page-load variation. Set `"direct": true` for stateful simulations that need real animation frames to warm up for `previewTime` seconds. Playwright captures the page, and Sharp converts it to WebP.
 
 To regenerate locally:
 
 ```bash
 npm install
-node scripts/generate-previews.js --collection fractal-universe
+npx playwright install chromium
+node scripts/generate-previews.js --collection fractal-universe --all --force
+npm test
 ```
 
 ---
 
 ## License
 
-MIT — free to use, modify, and build on. See [LICENSE](./LICENSE).
+MIT - free to use, modify, and build on. See [LICENSE](./LICENSE).

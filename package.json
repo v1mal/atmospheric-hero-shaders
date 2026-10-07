@@ -5,6 +5,7 @@
   "license": "MIT",
   "type": "commonjs",
   "scripts": {
+    "test": "node --test scripts/preview-selection.test.js",
     "generate-previews": "node scripts/generate-previews.js",
     "generate-previews:all": "node scripts/generate-previews.js --all --force",
     "generate-previews:gradient": "node scripts/generate-previews.js --collection gradient-shaders",
