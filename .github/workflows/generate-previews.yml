@@ -135,6 +135,7 @@ jobs:
         with:
           name: shader-previews-${{ matrix.collection }}
           path: .preview-artifacts/
+          include-hidden-files: true
           if-no-files-found: error
 
   commit:
